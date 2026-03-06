@@ -18,12 +18,138 @@ def write_u64(buf: bytearray, offset: int, value: int) -> None:
     buf[offset : offset + 8] = struct.pack("<Q", value)
 
 
+def align_up(value: int, align: int) -> int:
+    return ((value + align - 1) // align) * align
+
+
 def sha256_path(path: Path) -> str:
     hasher = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(8192), b""):
             hasher.update(chunk)
     return hasher.hexdigest()
+
+
+def push_dir_entry(
+    buf: bytearray,
+    parent: int,
+    sibling: int,
+    child_dir: int,
+    child_file: int,
+    next_hash: int,
+    name: str,
+) -> int:
+    offset = len(buf)
+    buf.extend(struct.pack("<IIIIII", parent, sibling, child_dir, child_file, next_hash, len(name)))
+    buf.extend(name.encode("utf-8"))
+    while len(buf) % 4 != 0:
+        buf.append(0)
+    return offset
+
+
+def push_file_entry(
+    buf: bytearray,
+    parent: int,
+    sibling: int,
+    data_off: int,
+    data_size: int,
+    next_hash: int,
+    name: str,
+) -> int:
+    offset = len(buf)
+    buf.extend(struct.pack("<IIQQII", parent, sibling, data_off, data_size, next_hash, len(name)))
+    buf.extend(name.encode("utf-8"))
+    while len(buf) % 4 != 0:
+        buf.append(0)
+    return offset
+
+
+def build_romfs_image() -> bytes:
+    file_root = b"HELLO"
+    file_nested = b"NESTED"
+    nested_dir = "data"
+    root_name = ""
+
+    root_entry_size = align_up(0x18 + len(root_name), 4)
+    nested_entry_off = root_entry_size
+    nested_entry_size = align_up(0x18 + len(nested_dir), 4)
+    dir_table_size = root_entry_size + nested_entry_size
+
+    file_root_name = "hello.txt"
+    file_nested_name = "nested.bin"
+    file_root_entry_size = align_up(0x20 + len(file_root_name), 4)
+    file_nested_off = file_root_entry_size
+    file_nested_entry_size = align_up(0x20 + len(file_nested_name), 4)
+    file_table_size = file_root_entry_size + file_nested_entry_size
+
+    file_root_data_off = 0
+    file_nested_data_off = align_up(len(file_root), 0x10)
+    file_data = bytearray(file_root)
+    file_data.extend(b"\x00" * (file_nested_data_off - len(file_data)))
+    file_data.extend(file_nested)
+
+    dir_table = bytearray()
+    push_dir_entry(
+        dir_table,
+        0xFFFF_FFFF,
+        0xFFFF_FFFF,
+        nested_entry_off,
+        0,
+        0xFFFF_FFFF,
+        root_name,
+    )
+    push_dir_entry(
+        dir_table,
+        0,
+        0xFFFF_FFFF,
+        0xFFFF_FFFF,
+        file_nested_off,
+        0xFFFF_FFFF,
+        nested_dir,
+    )
+
+    file_table = bytearray()
+    push_file_entry(
+        file_table,
+        0,
+        0xFFFF_FFFF,
+        file_root_data_off,
+        len(file_root),
+        0xFFFF_FFFF,
+        file_root_name,
+    )
+    push_file_entry(
+        file_table,
+        nested_entry_off,
+        0xFFFF_FFFF,
+        file_nested_data_off,
+        len(file_nested),
+        0xFFFF_FFFF,
+        file_nested_name,
+    )
+
+    header_size = 0x50
+    dir_table_off = align_up(header_size, 0x10)
+    file_table_off = align_up(dir_table_off + dir_table_size, 0x10)
+    file_data_off = align_up(file_table_off + file_table_size, 0x10)
+    total_size = file_data_off + len(file_data)
+    image = bytearray(total_size)
+
+    write_u64(image, 0x0, 0x50)
+    write_u64(image, 0x8, dir_table_off)
+    write_u64(image, 0x10, 0)
+    write_u64(image, 0x18, dir_table_off)
+    write_u64(image, 0x20, dir_table_size)
+    write_u64(image, 0x28, file_table_off)
+    write_u64(image, 0x30, 0)
+    write_u64(image, 0x38, file_table_off)
+    write_u64(image, 0x40, file_table_size)
+    write_u64(image, 0x48, file_data_off)
+
+    image[dir_table_off : dir_table_off + len(dir_table)] = dir_table
+    image[file_table_off : file_table_off + len(file_table)] = file_table
+    image[file_data_off : file_data_off + len(file_data)] = file_data
+    return bytes(image)
 
 
 def build_nro(path: Path, with_assets: bool) -> None:
@@ -61,8 +187,9 @@ def build_nro(path: Path, with_assets: bool) -> None:
         asset_header_size = 0x38
         icon = b"SYNTH-ICON-DATA"
         nacp = bytearray(0x4000)
-        nacp[:24] = b"SYNTHETIC NACP METADATA"
-        romfs = b"ROMFS-SAMPLE-DATA"
+        nacp_metadata = b"SYNTHETIC NACP METADATA"
+        nacp[: len(nacp_metadata)] = nacp_metadata
+        romfs = build_romfs_image()
 
         icon_offset = asset_header_size
         nacp_offset = icon_offset + len(icon)

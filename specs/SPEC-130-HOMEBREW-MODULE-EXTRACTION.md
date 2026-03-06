@@ -16,13 +16,13 @@ Define how NRO and NSO binaries are parsed and normalized into the internal modu
 - Recovering symbols beyond what the module provides.
 
 ## Background
-NRO is a Switch executable format used for non-ExeFS binaries and includes header offsets for code, rodata, data, and bss, plus an optional asset section. citeturn1view0
-NSO is another Switch executable format that can store segments compressed with LZ4 and includes a ModuleId for build identification. citeturn2view0
+NRO is a Switch executable format used for non-ExeFS binaries and includes header offsets for code, rodata, data, and bss, plus an optional asset section.
+NSO is another Switch executable format that can store segments compressed with LZ4 and includes a ModuleId for build identification.
 
 ## Requirements
-- The extractor must parse NRO headers and map text, rodata, data, and bss segments into module.json with file and memory offsets. citeturn1view0
-- The extractor must parse NSO headers and segment tables, including any LZ4-compressed segments, and produce decompressed outputs for translation. citeturn2view0
-- The extractor must capture the ModuleId/build id from NRO or NSO metadata for reproducible builds. citeturn1view0turn2view0
+- The extractor must parse NRO headers and map text, rodata, data, and bss segments into module.json with file and memory offsets.
+- The extractor must parse NSO headers and segment tables, including any LZ4-compressed segments, and produce decompressed outputs for translation.
+- The extractor must capture the ModuleId/build id from NRO or NSO metadata for reproducible builds.
 - If dynamic symbol tables or relocation metadata are present, the extractor must preserve them in module.json for later resolution.
 - Extraction must be deterministic: identical inputs produce byte-identical module.json and extracted segment files.
 

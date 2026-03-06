@@ -16,12 +16,12 @@ Define how homebrew asset data (icon, NACP, RomFS) is extracted from NROs and pa
 - Handling proprietary retail assets.
 
 ## Background
-NRO files can include an optional asset section that contains icon, NACP metadata, and RomFS content. citeturn1view0
-NACP (control.nacp) is a 0x4000-byte metadata file with UTF-8 strings used for title metadata. citeturn3view0
+NRO files can include an optional asset section that contains icon, NACP metadata, and RomFS content.
+NACP (`control.nacp`) is a 0x4000-byte metadata file with UTF-8 strings used for title metadata.
 
 ## Requirements
-- If an NRO asset section is present, extraction must locate the icon, NACP, and RomFS offsets/sizes and copy them into the output asset directory. citeturn1view0
-- Extracted NACP must be stored verbatim as `control.nacp` and validated for size 0x4000. citeturn3view0
+- If an NRO asset section is present, extraction must locate the icon, NACP, and RomFS offsets/sizes and copy them into the output asset directory.
+- Extracted NACP must be stored verbatim as `control.nacp` and validated for size `0x4000`.
 - Extracted icon data must be preserved as raw bytes with file metadata describing expected image type when known.
 - RomFS content must be extracted into a deterministic directory structure and hashed for provenance.
 - The output `manifest.json` must include per-asset hashes and sizes alongside code hashes.

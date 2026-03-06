@@ -17,14 +17,14 @@ Define the intake requirements and metadata capture needed to select a Switch ho
 - Handling titles that require runtime emulation rather than static recompilation.
 
 ## Background
-Homebrew on Switch is commonly distributed as NRO modules, which are executable formats for non-ExeFS binaries and may include an optional asset section for icon, NACP metadata, and RomFS content. citeturn1view0
+Homebrew on Switch is commonly distributed as NRO modules, which are executable formats for non-ExeFS binaries and may include an optional asset section for icon, NACP metadata, and RomFS content.
 
 ## Requirements
 - Intake must accept an NRO as the primary module, with optional auxiliary NSO modules when supplied.
 - Intake must reject inputs that contain proprietary retail assets or encrypted formats.
-- The NRO header and module identifier must be parsed to capture segment sizes, memory offsets, and build id metadata. citeturn1view0
-- If a homebrew asset section is present, intake must detect and extract the icon, NACP, and RomFS offsets and sizes. citeturn1view0
-- If NACP is present, intake must capture it as a 0x4000-byte control.nacp blob with UTF-8 strings. citeturn3view0
+- The NRO header and module identifier must be parsed to capture segment sizes, memory offsets, and build id metadata.
+- If a homebrew asset section is present, intake must detect and extract the icon, NACP, and RomFS offsets and sizes.
+- If NACP is present, intake must capture it as a 0x4000-byte `control.nacp` blob with UTF-8 strings.
 - Inputs must be hashed (SHA-256) and stored alongside provenance metadata.
 - Intake must emit a deterministic manifest describing:
   - Input file paths, sizes, hashes.

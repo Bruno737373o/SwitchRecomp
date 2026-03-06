@@ -1,5 +1,8 @@
 use crate::homebrew::module::{ModuleJson, ModuleSegment, MODULE_SCHEMA_VERSION};
-use crate::input::{Block, Function, Module, Op, Terminator};
+use crate::input::{
+    Block, Function, Module, ModuleSegment as LiftedSegment, ModuleSegmentPermissions, Op,
+    Terminator,
+};
 use serde_json;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -94,12 +97,14 @@ fn lift_stub(
     if segments.is_empty() {
         warnings.push("homebrew module contains no segments".to_string());
     }
+    let lifted_segments = build_lifted_segments(module_json, base_dir, out_dir)?;
 
     ensure_dir(out_dir)?;
 
     let lifted = Module {
         arch: "aarch64".to_string(),
-        segments: Vec::new(),
+        entry_address: lifted_segments.first().map(|segment| segment.base),
+        segments: lifted_segments,
         functions: vec![Function {
             name: options.entry_name.clone(),
             ops: vec![Op::Ret],
@@ -180,11 +185,14 @@ fn lift_decode(
         warnings.push("decoded zero functions from text segment".to_string());
     }
 
+    let lifted_segments = build_lifted_segments(module_json, base_dir, out_dir)?;
+
     ensure_dir(out_dir)?;
 
     let lifted = Module {
         arch: "aarch64".to_string(),
-        segments: Vec::new(),
+        entry_address: Some(text.base_addr),
+        segments: lifted_segments,
         functions,
     };
 
@@ -262,6 +270,86 @@ fn collect_segments(module_json: &ModuleJson, base_dir: &Path) -> Result<Vec<Seg
         }
     }
     Ok(segments)
+}
+
+fn build_lifted_segments(
+    module_json: &ModuleJson,
+    base_dir: &Path,
+    out_dir: &Path,
+) -> Result<Vec<LiftedSegment>, String> {
+    ensure_dir(out_dir)?;
+    let lifted_dir = out_dir.join("segments");
+    ensure_dir(&lifted_dir)?;
+
+    let module_count = module_json.modules.len();
+    let mut lifted = Vec::new();
+
+    for module in &module_json.modules {
+        for segment in &module.segments {
+            let source_path = resolve_segment_path(base_dir, segment);
+            let file_name = if module_count == 1 {
+                format!("{}.bin", segment.name)
+            } else {
+                format!("{}-{}.bin", module.name, segment.name)
+            };
+            let dest_path = lifted_dir.join(&file_name);
+            let bytes = fs::read(&source_path).map_err(|err| {
+                format!(
+                    "read lifted segment source {}: {err}",
+                    source_path.display()
+                )
+            })?;
+            fs::write(&dest_path, &bytes)
+                .map_err(|err| format!("write lifted segment {}: {err}", dest_path.display()))?;
+
+            let name = lifted_segment_name(&module.name, module_count, &segment.name);
+            let zero_fill = segment.memory_size > segment.file_size;
+            lifted.push(LiftedSegment {
+                name,
+                base: segment.memory_offset,
+                size: segment.memory_size,
+                permissions: lifted_permissions(&segment.permissions),
+                init_path: Some(format!("segments/{file_name}")),
+                init_size: Some(segment.file_size),
+                zero_fill,
+            });
+        }
+
+        if module.bss.size > 0 {
+            lifted.push(LiftedSegment {
+                name: lifted_segment_name(&module.name, module_count, "bss"),
+                base: module.bss.memory_offset,
+                size: module.bss.size,
+                permissions: ModuleSegmentPermissions {
+                    read: true,
+                    write: true,
+                    execute: false,
+                },
+                init_path: None,
+                init_size: None,
+                zero_fill: true,
+            });
+        }
+    }
+
+    lifted.sort_by(|a, b| a.base.cmp(&b.base).then_with(|| a.name.cmp(&b.name)));
+    Ok(lifted)
+}
+
+fn lifted_segment_name(module_name: &str, module_count: usize, segment_name: &str) -> String {
+    if module_count == 1 {
+        segment_name.to_string()
+    } else {
+        format!("{module_name}_{segment_name}")
+    }
+}
+
+fn lifted_permissions(raw: &str) -> ModuleSegmentPermissions {
+    ModuleSegmentPermissions {
+        read: raw.contains('r'),
+        write: raw.contains('w'),
+        execute: raw.contains('x'),
+    }
 }
 
 fn find_text_segment(

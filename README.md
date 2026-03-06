@@ -1,16 +1,16 @@
 # SwitchRecomp
 
-This repository contains a draft specification set for a Nintendo Switch static recompilation project focused on preservation. The documents define scope, requirements, and research needs without distributing any proprietary assets or binaries. An exploratory Rust workspace now mirrors the intended pipeline shape.
+This repository contains a preservation-focused Nintendo Switch static recompilation research project. The docs define scope, requirements, and legal boundaries, and the Rust workspace now implements a verified local operator path for intake, lift, translation, emitted-crate build, and automation without storing proprietary assets.
 
 ## Contents
 - `specs/` contains the numbered specification series.
-- `crates/` holds the exploratory pipeline/runtime scaffolding.
+- `crates/` holds the current exploratory pipeline, runtime, validation, and CLI tooling.
 - `skills/` provides the Codex skill set used for validation workflows.
 - `ROADMAP.md` provides phased milestones and exit criteria.
-- `RESEARCH.md` lists research directions and required sources.
+- `RESEARCH.md` records current external findings and source links.
 - `docs/` contains development notes.
- - `docs/LEGAL-POLICY.md` defines legal use and asset separation rules.
- - `docs/static-recomp-skills.md` documents the Codex skill set and project-level validation templates.
+- `docs/LEGAL-POLICY.md` defines legal use and asset separation rules.
+- `docs/static-recomp-skills.md` documents the Codex skill set and project-level validation templates.
 
 ## How to Use the Specs
 - Read `specs/README.md` for ordering.
@@ -29,6 +29,15 @@ Legal and provenance policy:
 ## Development
 - The dev environment is managed with Nix + devenv.
 - See `docs/DEVELOPMENT.md` for commands and sample usage.
+- Verified local smoke path as of 2026-03-05:
+  - `cargo run -p recomp-cli -- run --module samples/minimal/module.json --config samples/minimal/title.toml --provenance samples/minimal/provenance.toml --out-dir out/minimal`
+  - `cargo build --manifest-path out/minimal/Cargo.toml`
+  - `cargo run --manifest-path out/minimal/Cargo.toml`
+- Verified homebrew sample path as of 2026-03-05:
+  - `cargo run -p recomp-cli -- homebrew-intake --module samples/homebrew-intake/inputs/homebrew.nro --nso samples/homebrew-intake/inputs/overlay.nso --provenance samples/homebrew-intake/provenance.toml --out-dir out/homebrew-intake`
+  - `cargo run -p recomp-cli -- homebrew-lift --module-json out/homebrew-intake/module.json --out-dir out/homebrew-lift --mode stub`
+- Verified automation entry point as of 2026-03-05:
+  - `cargo run -p recomp-cli -- automate --config samples/automation.toml`
 
 ## Samples and Flow Docs
 - `samples/memory-image/` shows the memory image initialization flow (segment blob + lifted module).
@@ -58,6 +67,7 @@ Configured hooks:
 - 2026-01-29: Added `SPEC-TEMPLATE.md` and expanded `RESEARCH.md` with seed sources.
 - 2026-01-29: Added exploratory pipeline/runtime crates, a minimal sample, and dev environment scaffolding.
 - 2026-01-29: Added ISA, services, graphics, and timing scaffolds plus build manifest output.
+- 2026-03-05: Verified repo-root emitted-crate build/run, added `recomp-cli automate`, extended `title.toml` parsing, preserved lifted segment metadata, and moved the documented first milestone to public homebrew before retail.
 
 ## Status
-Early draft. Expect frequent revisions as research progresses.
+Exploratory implementation with a working local operator path. The first executable milestone is a public homebrew title; retail title work and cloud orchestration remain in scaffold/planning stages.

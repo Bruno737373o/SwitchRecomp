@@ -360,3 +360,27 @@ fn intake_homebrew_handles_nso_segments() {
     let module_json = fs::read_to_string(report.module_json_path).expect("read module.json");
     assert!(module_json.contains("\"format\": \"nso\""));
 }
+
+#[test]
+fn checked_in_homebrew_fixture_round_trips() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("repo root");
+    let sample_root = repo_root.join("samples/homebrew-intake");
+    let temp = tempdir().expect("tempdir");
+    let out_dir = temp.path().join("out");
+
+    let report = intake_homebrew(IntakeOptions {
+        module_path: sample_root.join("inputs/homebrew.nro"),
+        nso_paths: vec![sample_root.join("inputs/overlay.nso")],
+        provenance_path: sample_root.join("provenance.toml"),
+        out_dir: out_dir.clone(),
+    })
+    .expect("intake checked-in fixture");
+
+    assert!(report.module_json_path.exists());
+    assert!(report.manifest_path.exists());
+    assert!(out_dir.join("assets/control.nacp").exists());
+    assert!(out_dir.join("segments/overlay/text.bin").exists());
+}

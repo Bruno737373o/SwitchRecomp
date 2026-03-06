@@ -1,7 +1,8 @@
 # title-a24b9e807b456252 macOS/aarch64 Runbook (Scaffold)
 
 This runbook documents a reproducible build and run loop for the SPEC-200 scaffold on
-macOS/aarch64. It uses placeholder inputs and does not bundle any retail assets.
+macOS/aarch64. It uses placeholder inputs and does not bundle any retail assets. The commands
+below validate scaffold wiring; they do not currently prove a playable first-level run.
 
 ## Prerequisites
 - macOS on Apple Silicon (aarch64).

@@ -1,13 +1,14 @@
 # SPEC-180: XCI Title Intake
 
 ## Status
-Draft v0.2
+Draft v0.3
 
 ## Rationale
 - Added XCI intake CLI wiring with optional program selection config.
 - Enforced provenance inputs for XCI images and keysets.
 - Implemented deterministic ExeFS/NSO extraction and RomFS asset separation.
 - Added non-proprietary tests using a mock extractor.
+- Confirmed that real retail extraction must be treated as a private-user workflow with pinned external-tool compatibility.
 
 ## Purpose
 Define how the pipeline ingests a user-supplied XCI and extracts code and assets while preserving legal separation and deterministic outputs.
@@ -36,7 +37,8 @@ Define how the pipeline ingests a user-supplied XCI and extracts code and assets
 - The intake manifest must record tool versions, hashes, and extracted file sizes.
 - Use external tooling for decryption and container extraction (for example `hactool`), driven by
   a keyset in `key_name = HEX` format and passing the XCI/NCA extraction flags needed to emit
-  ExeFS and RomFS outputs. citeturn2view0
+  ExeFS and RomFS outputs.
+- The project must pin and document the external-tool compatibility matrix used for private retail work.
 
 ## Interfaces and Data
 - Inputs
@@ -59,9 +61,10 @@ Define how the pipeline ingests a user-supplied XCI and extracts code and assets
 ## Implementation Notes
 - The current intake accepts an unencrypted `XCI0` fixture layout (magic `XCI0`) for
   deterministic tests and uses external tooling (for example `hactool`) for real
-  XCI extraction. citeturn2view0
+  XCI extraction.
 - See `docs/xci-intake.md` for the Real XCI intake how-to and helper scripts.
 - See `docs/static-recompilation-flow.md` for the end-to-end intake + pipeline flow.
+- The current repo state proves the deterministic mock/private-user boundary, not a pinned real-tool compatibility matrix.
 
 ## Open Questions
 - How should update and DLC NCAs be layered or merged?

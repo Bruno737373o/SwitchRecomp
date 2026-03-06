@@ -85,6 +85,45 @@ pub enum RuntimeError {
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CpuState {
+    pub regs: [i64; 31],
+    pub sp: i64,
+    pub pc: u64,
+    pub flag_n: bool,
+    pub flag_z: bool,
+    pub flag_c: bool,
+    pub flag_v: bool,
+}
+
+impl CpuState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn lr(&self) -> i64 {
+        self.regs[30]
+    }
+
+    pub fn set_lr(&mut self, value: i64) {
+        self.regs[30] = value;
+    }
+}
+
+impl Default for CpuState {
+    fn default() -> Self {
+        Self {
+            regs: [0; 31],
+            sp: 0,
+            pc: 0,
+            flag_n: false,
+            flag_z: false,
+            flag_c: false,
+            flag_v: false,
+        }
+    }
+}
+
 pub fn abi_version() -> &'static str {
     ABI_VERSION
 }
@@ -282,5 +321,13 @@ mod tests {
     fn runtime_config_defaults_to_handheld() {
         let config = RuntimeConfig::default();
         assert!(matches!(config.performance_mode, PerformanceMode::Handheld));
+    }
+
+    #[test]
+    fn cpu_state_tracks_lr_in_x30() {
+        let mut state = CpuState::new();
+        state.set_lr(42);
+        assert_eq!(state.lr(), 42);
+        assert_eq!(state.regs[30], 42);
     }
 }

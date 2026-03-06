@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Module {
     pub arch: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry_address: Option<u64>,
     #[serde(default)]
     pub segments: Vec<ModuleSegment>,
     pub functions: Vec<Function>,

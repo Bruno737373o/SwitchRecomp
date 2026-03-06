@@ -78,6 +78,12 @@ fn homebrew_lift_emits_stub_module() {
         .expect("ops");
     assert_eq!(ops.len(), 1);
     assert_eq!(ops[0].get("op").and_then(|v| v.as_str()), Some("ret"));
+    let segments = lifted_json
+        .get("segments")
+        .and_then(|v| v.as_array())
+        .expect("segments");
+    assert_eq!(segments.len(), 1);
+    assert!(out_dir.join("segments/text.bin").exists());
 }
 
 #[test]
@@ -148,6 +154,16 @@ fn homebrew_lift_decodes_minimal_block() {
         .get("functions")
         .and_then(|v| v.as_array())
         .expect("functions");
+    assert_eq!(
+        lifted_json.get("entry_address").and_then(|v| v.as_u64()),
+        Some(0)
+    );
+    let segments = lifted_json
+        .get("segments")
+        .and_then(|v| v.as_array())
+        .expect("segments");
+    assert_eq!(segments.len(), 1);
+    assert!(out_dir.join("segments/text.bin").exists());
     let blocks = functions[0]
         .get("blocks")
         .and_then(|v| v.as_array())

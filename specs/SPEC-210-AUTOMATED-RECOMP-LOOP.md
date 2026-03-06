@@ -1,12 +1,13 @@
 # SPEC-210: Automated Recompilation Loop
 
 ## Status
-Draft v0.2
+Draft v0.3
 
 ## Rationale
 - Added an automation.toml schema and validator for end-to-end runs.
 - Added a CLI orchestrator that drives intake, lift, build, capture, hash, and validation steps.
 - Added deterministic run-manifest emission with artifact hashes and step summaries.
+- Added a real `recomp-cli automate --config <automation.toml>` entry point and repo-tested sample automation config.
 
 ## Purpose
 Define an automated loop that drives intake, recompilation, execution, capture, and validation in a repeatable pipeline.
@@ -47,7 +48,7 @@ Validation depends on comparing a captured run against a reference video with us
   - `[reference]` reference_video_toml, input_script_toml.
   - `[run]` command overrides for build/run/capture.
 - Output:
-  - `run-manifest.json` (step results, hashes, timings)
+  - `run-manifest.json` (platform profile, tool metadata, step results, hashes, timings)
   - `validation-report.json` from the validation step
 
 ## Deliverables
@@ -60,7 +61,7 @@ Validation depends on comparing a captured run against a reference video with us
 - How should partial failures be recorded for rerun?
 
 ## Acceptance Criteria
-- A single command runs intake, build, capture, and validation in sequence.
+- A single command runs the configured intake/build/capture/validation loop in sequence.
 - The run manifest lists all artifacts with hashes and sizes.
 - Re-running with identical inputs yields identical artifacts and validation results.
 

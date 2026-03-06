@@ -86,6 +86,12 @@ cargo run -p recomp-cli -- run \
 cargo build --manifest-path out/minimal/Cargo.toml
 ```
 
+- Run the emitted project:
+
+```
+cargo run --manifest-path out/minimal/Cargo.toml
+```
+
 - Inspect the manifest:
 
 ```
@@ -121,3 +127,9 @@ cargo run -p recomp-cli -- homebrew-lift \
 
 The default mode attempts to decode a small AArch64 subset (mov wide, add, ret). Use `--mode stub`
 to emit a placeholder lifted module without decoding instructions.
+
+- Run the automation loop:
+
+```
+cargo run -p recomp-cli -- automate --config samples/automation.toml
+```

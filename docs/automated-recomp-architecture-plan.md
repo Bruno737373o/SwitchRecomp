@@ -1,12 +1,12 @@
 # Automated Recompilation Architecture Plan
 
 ## Status
-Draft v0.1
+Draft v0.2
 
 ## Goals
 - Provide a concrete, end-to-end architecture for fully automated static recompilation.
 - Define a hybrid local plus AWS deployment that keeps inputs and outputs cleanly separated.
-- Specify an agent-managed pipeline using the GPT-5.2-Codex API via the OpenAI Responses API.
+- Specify a deterministic artifact contract that works locally and in AWS.
 - Make security and provenance a first-class concern across the pipeline.
 
 ## Scope
@@ -29,13 +29,16 @@ Draft v0.1
 
 ### AWS Stack
 - Run Control Plane: API layer for submission, status, and metadata.
-- Orchestration Service: AWS Step Functions for stateful pipelines and retries.
-- Job Queue: SQS for work item fanout to workers.
-- Compute Pool: ECS or Batch for stateless workers (CPU/GPU tiers).
-- Artifact Store: S3 with immutable object versioning and lifecycle policies.
+- Orchestration Service: AWS Step Functions Standard for stateful pipelines and retries.
+- Batch Fan-out: Step Functions Distributed Map only for explicit batch workloads.
+- Compute Pool: AWS Batch `.sync` jobs for stateless workers.
+- Artifact Store: S3 with content-addressed keys, Versioning, and Object Lock governance mode.
 - Metadata Store: DynamoDB or Postgres for run state, provenance, and indexing.
-- Model Gateway: service that brokers access to GPT-5.2-Codex via the Responses API.
-- Validation Farm: managed runners that execute deterministic replays and compare outputs.
+- Validation Lanes:
+  - `cpu-linux` for intake, lift, codegen, and package
+  - `video-linux` for ffmpeg and metrics
+  - `metal-macos` only when Metal/macOS parity is required
+- Agent Interface: planning and triage only; agents do not mutate artifacts directly.
 
 ## Core Services and Responsibilities
 - Run Control Plane: authenticate requests, enforce policy, and emit run events.
@@ -43,13 +46,13 @@ Draft v0.1
 - Artifact Store: store all immutable inputs and outputs with content hashes.
 - Metadata Store: track run status, provenance, and artifact lineage.
 - Execution Workers: perform deterministic transforms using the pipeline specs.
-- Model Gateway: normalize prompts, enforce redaction, and apply model routing rules.
+- Agent Gateway: normalize prompts, enforce redaction, and keep planning separate from artifact mutation.
 - Validation Harness: execute deterministic checks and write validation reports.
 
 ## Data Flow (Hybrid)
 1. Intake: local or cloud intake validates inputs and creates a run request.
 2. Normalize: inputs are normalized, hashed, and written to the Artifact Store.
-3. Plan: the agent planner generates a run plan using GPT-5.2-Codex.
+3. Plan: an agent planner may summarize the run and propose actions, but it does not write artifacts.
 4. Execute: workers process plan stages and emit artifacts and logs.
 5. Validate: validation runners compare outputs to reference baselines.
 6. Package: build outputs are packaged with manifests and integrity reports.
@@ -63,12 +66,10 @@ Draft v0.1
 - Maintain immutable audit logs for all run requests and model prompts.
 - Enforce redaction rules before any model request leaves the environment.
 
-## Agent-Managed Pipeline Using GPT-5.2-Codex
-- Use the OpenAI Responses API as the sole model interface for GPT-5.2-Codex.
-- Use structured responses with explicit schemas for plans, diffs, and decisions.
-- Apply model routing rules that can fall back to GPT-5.2 if GPT-5.2-Codex is unavailable.
+## Agent Role
+- Use agents for planning, triage, summarization, and artifact review.
+- Do not let agents write, rewrite, or delete canonical artifacts until the stage contracts are stable.
 - Capture prompts, responses, and model metadata in the audit log.
-- Provide tool access only through the Model Gateway to enforce policy.
 
 ## Automation and Operations
 - Local runs: CLI triggers a local orchestrator workflow with deterministic stages.
@@ -76,6 +77,7 @@ Draft v0.1
 - Retry policy: bounded retries with exponential backoff and circuit breakers.
 - Approval gates: optional human approval for high-cost or high-risk stages.
 - Rollbacks: failed stages retain artifacts and logs for replay.
+- macOS validation is an exception lane because EC2 Mac remains dedicated-host only with a 24-hour minimum allocation.
 
 ## Observability
 - Structured logs for each stage with run-id correlation.
@@ -83,9 +85,9 @@ Draft v0.1
 - Traces for end-to-end run latency across services.
 
 ## Rollout Phases
-- Phase 1: local-only orchestration and agent planning.
-- Phase 2: hybrid runs with shared Artifact Store and cloud validation.
-- Phase 3: full AWS orchestration with auto-scaling execution pools.
+- Phase 1: local-only orchestration with stable `run-manifest.json`.
+- Phase 2: hybrid runs with shared Artifact Store and Linux validation workers.
+- Phase 3: full AWS orchestration with explicit macOS parity lane where needed.
 
 ## Open Questions
 - Do we need a dedicated schema registry for agent outputs?

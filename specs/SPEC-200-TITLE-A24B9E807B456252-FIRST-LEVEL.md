@@ -1,17 +1,20 @@
 # SPEC-200: title-a24b9e807b456252 First-Level Milestone (macOS/aarch64)
 
 ## Status
-Draft v0.2
+Scaffold v0.3
 
 ## Rationale
 - Added non-proprietary scaffolding for title config, patch placeholders, and run instructions.
+- The repo does not currently contain a runnable first-level implementation for this title.
+- This spec now records the private retail scaffold and prerequisites instead of implying that the milestone is already on track or complete.
 
 ## Purpose
-Define the first title milestone for the title-a24b9e807b456252 XCI on macOS/aarch64, using video-based validation to confirm the first level is playable.
+Define the private retail scaffold for title-a24b9e807b456252 on macOS/aarch64. This spec does not claim that the title is currently runnable; it records the requirements that must be met after the public homebrew path is proven.
 
 ## Goals
-- Produce a macOS/aarch64 static recompilation that boots and reaches the first level.
-- Validate the run against the reference gameplay video for timing, visuals, and audio.
+- Keep the title-specific config, provenance, and validation placeholders organized.
+- Define the private-user prerequisites for later retail bring-up.
+- Reuse the shared pipeline/runtime contracts proven by the public homebrew milestone.
 - Keep all proprietary assets external and user-supplied.
 
 ## Non-Goals
@@ -22,7 +25,7 @@ Define the first title milestone for the title-a24b9e807b456252 XCI on macOS/aar
 ## Background
 - A retail XCI and a long-form gameplay reference video are available locally.
 - The project already defines pipeline, runtime, and validation scaffolding for homebrew.
-- This milestone focuses on proving the retail-title path works end to end.
+- The current repository does not yet provide the minimal service, graphics, and validation surface required to run this title.
 
 ## Requirements
 - Intake must extract Program NCA, ExeFS, and NSO segments from the XCI using user keys.
@@ -31,6 +34,7 @@ Define the first title milestone for the title-a24b9e807b456252 XCI on macOS/aar
 - RomFS assets must be loaded from an external, user-managed path.
 - Validation must compare the first level segment against the reference video and record results.
 - Validation artifacts must be tracked externally (artifact index + report output paths).
+- This title must not be promoted beyond scaffold status until it uses the same lifted-module, CPU-state, service, and validation contracts proven by the public homebrew path.
 
 ## Operator Inputs
 - title-a24b9e807b456252 validation depends on external reference and capture artifacts.
@@ -44,10 +48,9 @@ Define the first title milestone for the title-a24b9e807b456252 XCI on macOS/aar
 - `docs/title-a24b9e807b456252-first-level.md` for the scaffolding walkthrough.
 
 ## Deliverables
-- Title-specific configuration and patch set placeholders to reach the first playable level.
-- A reproducible build and run command for macOS/aarch64.
-- A validation report demonstrating the first-level gate.
-- A capture workflow and artifact index template for title-a24b9e807b456252-specific runs.
+- Title-specific configuration and patch placeholders.
+- A private-user runbook that documents required external inputs.
+- A validation prerequisites checklist and artifact-index template.
 
 ## Scaffolding
 - `samples/title-a24b9e807b456252/title.toml` with external asset and key paths.
@@ -61,9 +64,9 @@ Define the first title milestone for the title-a24b9e807b456252 XCI on macOS/aar
 - Which shader or GPU features are required for the first level?
 
 ## Acceptance Criteria
-- The macOS/aarch64 build boots and reaches the first playable level.
-- The first-level run is playable and passes the video-based validation threshold.
+- The title scaffold clearly documents the external prerequisites, private inputs, and unresolved implementation gaps.
 - No proprietary assets are committed to the repo or build outputs.
+- The spec can be advanced only after the title runs on the shared post-homebrew core.
 
 ## Risks
 - GPU translation gaps may block rendering.

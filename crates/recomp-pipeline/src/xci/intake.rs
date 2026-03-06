@@ -311,6 +311,10 @@ fn write_intake_outputs(
 
     let module_json = Module {
         arch: "aarch64".to_string(),
+        entry_address: module_segments
+            .iter()
+            .find(|segment| segment.permissions.execute)
+            .map(|segment| segment.base),
         segments: module_segments,
         functions: vec![Function {
             name: "entry".to_string(),

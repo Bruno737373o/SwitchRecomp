@@ -15,6 +15,8 @@ const BUILD_MANIFEST_SELF_SHA_PLACEHOLDER: &str =
 pub struct BuildManifest {
     pub title: String,
     pub abi_version: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entry_address: Option<u64>,
     pub module_sha256: String,
     pub config_sha256: String,
     pub provenance_sha256: String,
@@ -174,7 +176,7 @@ fn find_manifest_self_entry_mut(
 
 fn emit_cargo_toml(program: &RustProgram, runtime_rel: &Path) -> String {
     format!(
-        "[package]\nname = \"recomp-{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\nrecomp-runtime = {{ path = \"{runtime}\" }}\n",
+        "[package]\nname = \"recomp-{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n\n[dependencies]\nrecomp-runtime = {{ path = \"{runtime}\" }}\n",
         name = sanitize_name(&program.title),
         runtime = runtime_rel.display()
     )
@@ -199,9 +201,24 @@ fn emit_main_rs(program: &RustProgram) -> String {
     });
     out.push_str(");\n");
     out.push_str("    recomp_runtime::init(&runtime_config);\n");
+    out.push_str("    let mut state = recomp_runtime::CpuState::new();\n");
+    if let Some(entry_address) = program.entry_address {
+        out.push_str(&format!("    state.pc = {entry_address};\n"));
+    }
+    if let Some(stack) = program
+        .memory_layout
+        .regions
+        .iter()
+        .find(|region| region.name == "stack")
+    {
+        out.push_str(&format!(
+            "    state.sp = {:#x};\n",
+            stack.base.saturating_add(stack.size)
+        ));
+    }
     emit_memory_layout_init(&mut out, &program.memory_layout);
     emit_memory_image_init(&mut out, program.memory_image.as_ref());
-    out.push_str(&format!("    {}()?;\n", program.entry));
+    out.push_str(&format!("    {}(&mut state)?;\n", program.entry));
     out.push_str(
         "    Ok(())\n}
 \n",
@@ -263,19 +280,13 @@ fn emit_memory_image_init(out: &mut String, image: Option<&MemoryImageDescriptor
 fn emit_function(function: &RustFunction) -> String {
     let mut out = String::new();
     out.push_str(&format!(
-        "fn {}() -> Result<(), recomp_runtime::RuntimeError> {{\n",
+        "fn {}(state: &mut recomp_runtime::CpuState) -> Result<(), recomp_runtime::RuntimeError> {{\n",
         function.name
     ));
     for reg in &function.regs {
         out.push_str(&format!("    let mut {reg}: i64 = 0;\n"));
     }
-    if function.needs_flags {
-        out.push_str("    let mut flag_n = false;\n");
-        out.push_str("    let mut flag_z = false;\n");
-        out.push_str("    let mut flag_c = false;\n");
-        out.push_str("    let mut flag_v = false;\n");
-    }
-    if !function.regs.is_empty() || function.needs_flags {
+    if !function.regs.is_empty() {
         out.push('\n');
     }
     match &function.body {

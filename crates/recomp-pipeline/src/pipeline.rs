@@ -111,6 +111,7 @@ pub fn run_pipeline(options: PipelineOptions) -> Result<PipelineReport, Pipeline
     let manifest = BuildManifest {
         title: program.title.clone(),
         abi_version: program.abi_version.clone(),
+        entry_address: program.entry_address,
         module_sha256: module_hash,
         config_sha256: config_hash,
         provenance_sha256: provenance_hash,
@@ -291,6 +292,7 @@ fn translate_module(
         title: config.title.clone(),
         abi_version: config.abi_version.clone(),
         entry,
+        entry_address: config.runtime.entry_address.or(module.entry_address),
         functions,
         performance_mode: config.runtime.performance_mode,
         memory_layout: config.memory_layout.clone(),
@@ -315,8 +317,50 @@ fn translate_function(
 }
 
 fn track_reg(regs: &mut Vec<String>, name: &str) {
+    if uses_cpu_state(name) {
+        return;
+    }
     if !regs.iter().any(|item| item == name) {
         regs.push(name.to_string());
+    }
+}
+
+fn uses_cpu_state(name: &str) -> bool {
+    name == "sp" || name == "lr" || name == "pc" || reg_index(name).is_some()
+}
+
+fn reg_index(name: &str) -> Option<usize> {
+    let rest = name.strip_prefix('x')?;
+    let value: usize = rest.parse().ok()?;
+    (value < 31).then_some(value)
+}
+
+fn render_value(regs: &mut Vec<String>, name: &str) -> String {
+    if let Some(index) = reg_index(name) {
+        return format!("state.regs[{index}]");
+    }
+    match name {
+        "sp" => "state.sp".to_string(),
+        "lr" => "state.regs[30]".to_string(),
+        "pc" => "state.pc as i64".to_string(),
+        _ => {
+            track_reg(regs, name);
+            name.to_string()
+        }
+    }
+}
+
+fn render_lvalue(regs: &mut Vec<String>, name: &str) -> String {
+    if let Some(index) = reg_index(name) {
+        return format!("state.regs[{index}]");
+    }
+    match name {
+        "sp" => "state.sp".to_string(),
+        "lr" => "state.regs[30]".to_string(),
+        _ => {
+            track_reg(regs, name);
+            name.to_string()
+        }
     }
 }
 
@@ -393,149 +437,151 @@ fn translate_op(
 ) -> Result<(), PipelineError> {
     match op {
         Op::ConstI64 { dst, imm } => {
-            track_reg(regs, dst);
-            lines.push(format!("{dst} = {imm};"));
+            let dst_expr = render_lvalue(regs, dst);
+            lines.push(format!("{dst_expr} = {imm};"));
         }
         Op::AddI64 { dst, lhs, rhs } => {
-            track_reg(regs, dst);
-            track_reg(regs, lhs);
-            track_reg(regs, rhs);
-            lines.push(format!("{dst} = {lhs} + {rhs};"));
+            let dst_expr = render_lvalue(regs, dst);
+            let lhs_expr = render_value(regs, lhs);
+            let rhs_expr = render_value(regs, rhs);
+            lines.push(format!("{dst_expr} = {lhs_expr} + {rhs_expr};"));
         }
         Op::MovI64 { dst, src } => {
-            track_reg(regs, dst);
-            track_reg(regs, src);
-            lines.push(format!("{dst} = {src};"));
+            let dst_expr = render_lvalue(regs, dst);
+            let src_expr = render_value(regs, src);
+            lines.push(format!("{dst_expr} = {src_expr};"));
         }
         Op::SubI64 { dst, lhs, rhs } => {
-            track_reg(regs, dst);
-            track_reg(regs, lhs);
-            track_reg(regs, rhs);
-            lines.push(format!("{dst} = {lhs} - {rhs};"));
+            let dst_expr = render_lvalue(regs, dst);
+            let lhs_expr = render_value(regs, lhs);
+            let rhs_expr = render_value(regs, rhs);
+            lines.push(format!("{dst_expr} = {lhs_expr} - {rhs_expr};"));
         }
         Op::AndI64 { dst, lhs, rhs } => {
-            track_reg(regs, dst);
-            track_reg(regs, lhs);
-            track_reg(regs, rhs);
-            lines.push(format!("{dst} = {lhs} & {rhs};"));
+            let dst_expr = render_lvalue(regs, dst);
+            let lhs_expr = render_value(regs, lhs);
+            let rhs_expr = render_value(regs, rhs);
+            lines.push(format!("{dst_expr} = {lhs_expr} & {rhs_expr};"));
         }
         Op::OrI64 { dst, lhs, rhs } => {
-            track_reg(regs, dst);
-            track_reg(regs, lhs);
-            track_reg(regs, rhs);
-            lines.push(format!("{dst} = {lhs} | {rhs};"));
+            let dst_expr = render_lvalue(regs, dst);
+            let lhs_expr = render_value(regs, lhs);
+            let rhs_expr = render_value(regs, rhs);
+            lines.push(format!("{dst_expr} = {lhs_expr} | {rhs_expr};"));
         }
         Op::XorI64 { dst, lhs, rhs } => {
-            track_reg(regs, dst);
-            track_reg(regs, lhs);
-            track_reg(regs, rhs);
-            lines.push(format!("{dst} = {lhs} ^ {rhs};"));
+            let dst_expr = render_lvalue(regs, dst);
+            let lhs_expr = render_value(regs, lhs);
+            let rhs_expr = render_value(regs, rhs);
+            lines.push(format!("{dst_expr} = {lhs_expr} ^ {rhs_expr};"));
         }
         Op::CmpI64 { lhs, rhs } => {
-            track_reg(regs, lhs);
-            track_reg(regs, rhs);
+            let lhs_expr = render_value(regs, lhs);
+            let rhs_expr = render_value(regs, rhs);
             *needs_flags = true;
             lines.push(format!(
-                "let (__recomp_cmp_res, __recomp_cmp_overflow) = {lhs}.overflowing_sub({rhs});"
+                "let (__recomp_cmp_res, __recomp_cmp_overflow) = {lhs_expr}.overflowing_sub({rhs_expr});"
             ));
             lines.push(format!(
-                "let (_, __recomp_cmp_borrow) = ({lhs} as u64).overflowing_sub({rhs} as u64);"
+                "let (_, __recomp_cmp_borrow) = ({lhs_expr} as u64).overflowing_sub({rhs_expr} as u64);"
             ));
-            lines.push("flag_n = __recomp_cmp_res < 0;".to_string());
-            lines.push("flag_z = __recomp_cmp_res == 0;".to_string());
-            lines.push("flag_c = !__recomp_cmp_borrow;".to_string());
-            lines.push("flag_v = __recomp_cmp_overflow;".to_string());
+            lines.push("state.flag_n = __recomp_cmp_res < 0;".to_string());
+            lines.push("state.flag_z = __recomp_cmp_res == 0;".to_string());
+            lines.push("state.flag_c = !__recomp_cmp_borrow;".to_string());
+            lines.push("state.flag_v = __recomp_cmp_overflow;".to_string());
         }
         Op::CmnI64 { lhs, rhs } => {
-            track_reg(regs, lhs);
-            track_reg(regs, rhs);
+            let lhs_expr = render_value(regs, lhs);
+            let rhs_expr = render_value(regs, rhs);
             *needs_flags = true;
             lines.push(format!(
-                "let (__recomp_cmn_res, __recomp_cmn_overflow) = {lhs}.overflowing_add({rhs});"
+                "let (__recomp_cmn_res, __recomp_cmn_overflow) = {lhs_expr}.overflowing_add({rhs_expr});"
             ));
             lines.push(format!(
-                "let (_, __recomp_cmn_carry) = ({lhs} as u64).overflowing_add({rhs} as u64);"
+                "let (_, __recomp_cmn_carry) = ({lhs_expr} as u64).overflowing_add({rhs_expr} as u64);"
             ));
-            lines.push("flag_n = __recomp_cmn_res < 0;".to_string());
-            lines.push("flag_z = __recomp_cmn_res == 0;".to_string());
-            lines.push("flag_c = __recomp_cmn_carry;".to_string());
-            lines.push("flag_v = __recomp_cmn_overflow;".to_string());
+            lines.push("state.flag_n = __recomp_cmn_res < 0;".to_string());
+            lines.push("state.flag_z = __recomp_cmn_res == 0;".to_string());
+            lines.push("state.flag_c = __recomp_cmn_carry;".to_string());
+            lines.push("state.flag_v = __recomp_cmn_overflow;".to_string());
         }
         Op::TestI64 { lhs, rhs } => {
-            track_reg(regs, lhs);
-            track_reg(regs, rhs);
+            let lhs_expr = render_value(regs, lhs);
+            let rhs_expr = render_value(regs, rhs);
             *needs_flags = true;
-            lines.push(format!("let __recomp_tst_res = {lhs} & {rhs};"));
-            lines.push("flag_n = __recomp_tst_res < 0;".to_string());
-            lines.push("flag_z = __recomp_tst_res == 0;".to_string());
-            lines.push("flag_c = false;".to_string());
-            lines.push("flag_v = false;".to_string());
+            lines.push(format!("let __recomp_tst_res = {lhs_expr} & {rhs_expr};"));
+            lines.push("state.flag_n = __recomp_tst_res < 0;".to_string());
+            lines.push("state.flag_z = __recomp_tst_res == 0;".to_string());
+            lines.push("state.flag_c = false;".to_string());
+            lines.push("state.flag_v = false;".to_string());
         }
         Op::LslI64 { dst, lhs, rhs } => {
-            track_reg(regs, dst);
-            track_reg(regs, lhs);
-            track_reg(regs, rhs);
+            let dst_expr = render_lvalue(regs, dst);
+            let lhs_expr = render_value(regs, lhs);
+            let rhs_expr = render_value(regs, rhs);
             lines.push(format!(
-                "{dst} = (({lhs} as u64) << (({rhs} as u64) & 63)) as i64;"
+                "{dst_expr} = (({lhs_expr} as u64) << (({rhs_expr} as u64) & 63)) as i64;"
             ));
         }
         Op::LsrI64 { dst, lhs, rhs } => {
-            track_reg(regs, dst);
-            track_reg(regs, lhs);
-            track_reg(regs, rhs);
+            let dst_expr = render_lvalue(regs, dst);
+            let lhs_expr = render_value(regs, lhs);
+            let rhs_expr = render_value(regs, rhs);
             lines.push(format!(
-                "{dst} = (({lhs} as u64) >> (({rhs} as u64) & 63)) as i64;"
+                "{dst_expr} = (({lhs_expr} as u64) >> (({rhs_expr} as u64) & 63)) as i64;"
             ));
         }
         Op::AsrI64 { dst, lhs, rhs } => {
-            track_reg(regs, dst);
-            track_reg(regs, lhs);
-            track_reg(regs, rhs);
-            lines.push(format!("{dst} = {lhs} >> (({rhs} as u64) & 63);"));
+            let dst_expr = render_lvalue(regs, dst);
+            let lhs_expr = render_value(regs, lhs);
+            let rhs_expr = render_value(regs, rhs);
+            lines.push(format!(
+                "{dst_expr} = {lhs_expr} >> (({rhs_expr} as u64) & 63);"
+            ));
         }
         Op::PcRel { dst, pc, offset } => {
-            track_reg(regs, dst);
-            lines.push(format!("{dst} = {pc} + {offset};"));
+            let dst_expr = render_lvalue(regs, dst);
+            lines.push(format!("{dst_expr} = {pc} + {offset};"));
         }
         Op::LoadI8 { dst, addr, offset } => {
-            track_reg(regs, dst);
-            track_reg(regs, addr);
-            emit_load(lines, dst, addr, *offset, "mem_load_u8");
+            let dst_expr = render_lvalue(regs, dst);
+            let addr_expr = render_value(regs, addr);
+            emit_load(lines, &dst_expr, &addr_expr, *offset, "mem_load_u8");
         }
         Op::LoadI16 { dst, addr, offset } => {
-            track_reg(regs, dst);
-            track_reg(regs, addr);
-            emit_load(lines, dst, addr, *offset, "mem_load_u16");
+            let dst_expr = render_lvalue(regs, dst);
+            let addr_expr = render_value(regs, addr);
+            emit_load(lines, &dst_expr, &addr_expr, *offset, "mem_load_u16");
         }
         Op::LoadI32 { dst, addr, offset } => {
-            track_reg(regs, dst);
-            track_reg(regs, addr);
-            emit_load(lines, dst, addr, *offset, "mem_load_u32");
+            let dst_expr = render_lvalue(regs, dst);
+            let addr_expr = render_value(regs, addr);
+            emit_load(lines, &dst_expr, &addr_expr, *offset, "mem_load_u32");
         }
         Op::LoadI64 { dst, addr, offset } => {
-            track_reg(regs, dst);
-            track_reg(regs, addr);
-            emit_load(lines, dst, addr, *offset, "mem_load_u64");
+            let dst_expr = render_lvalue(regs, dst);
+            let addr_expr = render_value(regs, addr);
+            emit_load(lines, &dst_expr, &addr_expr, *offset, "mem_load_u64");
         }
         Op::StoreI8 { src, addr, offset } => {
-            track_reg(regs, src);
-            track_reg(regs, addr);
-            emit_store(lines, src, addr, *offset, "mem_store_u8");
+            let src_expr = render_value(regs, src);
+            let addr_expr = render_value(regs, addr);
+            emit_store(lines, &src_expr, &addr_expr, *offset, "mem_store_u8");
         }
         Op::StoreI16 { src, addr, offset } => {
-            track_reg(regs, src);
-            track_reg(regs, addr);
-            emit_store(lines, src, addr, *offset, "mem_store_u16");
+            let src_expr = render_value(regs, src);
+            let addr_expr = render_value(regs, addr);
+            emit_store(lines, &src_expr, &addr_expr, *offset, "mem_store_u16");
         }
         Op::StoreI32 { src, addr, offset } => {
-            track_reg(regs, src);
-            track_reg(regs, addr);
-            emit_store(lines, src, addr, *offset, "mem_store_u32");
+            let src_expr = render_value(regs, src);
+            let addr_expr = render_value(regs, addr);
+            emit_store(lines, &src_expr, &addr_expr, *offset, "mem_store_u32");
         }
         Op::StoreI64 { src, addr, offset } => {
-            track_reg(regs, src);
-            track_reg(regs, addr);
-            emit_store(lines, src, addr, *offset, "mem_store_u64");
+            let src_expr = render_value(regs, src);
+            let addr_expr = render_value(regs, addr);
+            emit_store(lines, &src_expr, &addr_expr, *offset, "mem_store_u64");
         }
         Op::Br { target } => {
             lines.push(format!(
@@ -555,15 +601,16 @@ fn translate_op(
             lines.push(call_line);
         }
         Op::Syscall { name, args } => {
-            for arg in args {
-                track_reg(regs, arg);
-            }
+            let rendered_args = args
+                .iter()
+                .map(|arg| render_value(regs, arg))
+                .collect::<Vec<_>>();
             let behavior = config
                 .stubs
                 .get(name)
                 .copied()
                 .unwrap_or(StubBehavior::Panic);
-            let call = render_syscall(name, behavior, args);
+            let call = render_syscall(name, behavior, &rendered_args);
             lines.push(call);
         }
         Op::Ret => {
@@ -609,7 +656,7 @@ fn translate_terminator(
 
 fn render_call_line(target: &str) -> String {
     if is_rust_ident(target) {
-        format!("{target}()?;")
+        format!("{target}(state)?;")
     } else {
         format!(
             "panic!({});",
@@ -637,20 +684,20 @@ fn emit_store(lines: &mut Vec<String>, src: &str, addr: &str, offset: i64, helpe
 
 fn render_cond_expr(cond: &str) -> Option<String> {
     let expr = match cond {
-        "eq" => "flag_z",
-        "ne" => "!flag_z",
-        "cs" | "hs" => "flag_c",
-        "cc" | "lo" => "!flag_c",
-        "mi" => "flag_n",
-        "pl" => "!flag_n",
-        "vs" => "flag_v",
-        "vc" => "!flag_v",
-        "hi" => "flag_c && !flag_z",
-        "ls" => "!flag_c || flag_z",
-        "ge" => "flag_n == flag_v",
-        "lt" => "flag_n != flag_v",
-        "gt" => "!flag_z && (flag_n == flag_v)",
-        "le" => "flag_z || (flag_n != flag_v)",
+        "eq" => "state.flag_z",
+        "ne" => "!state.flag_z",
+        "cs" | "hs" => "state.flag_c",
+        "cc" | "lo" => "!state.flag_c",
+        "mi" => "state.flag_n",
+        "pl" => "!state.flag_n",
+        "vs" => "state.flag_v",
+        "vc" => "!state.flag_v",
+        "hi" => "state.flag_c && !state.flag_z",
+        "ls" => "!state.flag_c || state.flag_z",
+        "ge" => "state.flag_n == state.flag_v",
+        "lt" => "state.flag_n != state.flag_v",
+        "gt" => "!state.flag_z && (state.flag_n == state.flag_v)",
+        "le" => "state.flag_z || (state.flag_n != state.flag_v)",
         "al" => "true",
         _ => return None,
     };
@@ -719,6 +766,7 @@ pub struct RustProgram {
     pub title: String,
     pub abi_version: String,
     pub entry: String,
+    pub entry_address: Option<u64>,
     pub functions: Vec<RustFunction>,
     pub performance_mode: PerformanceMode,
     pub memory_layout: MemoryLayoutDescriptor,

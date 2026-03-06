@@ -58,6 +58,45 @@ abi_version = "0.1.0"
 svc_log = "log"
 "#;
 
+const CONFIG_TOML_EXTENDED: &str = r#"
+title = "Extended Sample"
+entry = "entry"
+abi_version = "0.1.0"
+
+[runtime]
+performance_mode = "docked"
+entry_address = 0x401000
+
+[stubs]
+svc_log = "log"
+
+[assets]
+romfs_path = "/Volumes/External/romfs"
+shader_cache_path = "/Volumes/External/shader-cache"
+save_data_dir = "/Volumes/External/save-data"
+
+[keys]
+prod_keys_path = "/Volumes/External/SwitchKeys/prod.keys"
+title_keys_path = "/Volumes/External/SwitchKeys/title.keys"
+
+[inputs]
+xci_path = "/Volumes/External/title.xci"
+program_nca_path = "/Volumes/External/program.nca"
+exefs_dir = "/Volumes/External/exefs"
+
+[patches]
+patch_set = "patches/patches.toml"
+
+[validation]
+reference_video_path = "/Volumes/External/reference.mp4"
+segment_start = "00:00:00"
+segment_end = "00:01:00"
+
+[gpu]
+backend = "metal"
+notes = "framebuffer-first"
+"#;
+
 const CONFIG_TOML_OVERLAP_LAYOUT: &str = r#"
 title = "Overlap Sample"
 entry = "entry"
@@ -107,6 +146,36 @@ fn parse_title_config() {
 fn parse_title_config_defaults_layout() {
     let config = TitleConfig::parse(CONFIG_TOML_DEFAULT_LAYOUT).expect("config parses");
     assert_eq!(config.memory_layout.regions.len(), 5);
+}
+
+#[test]
+fn parse_title_config_extended_sections() {
+    let config = TitleConfig::parse(CONFIG_TOML_EXTENDED).expect("config parses");
+    assert!(matches!(
+        config.runtime.performance_mode,
+        recomp_pipeline::config::PerformanceMode::Docked
+    ));
+    assert_eq!(config.runtime.entry_address, Some(0x401000));
+    assert_eq!(
+        config.assets.romfs_path.as_deref(),
+        Some(std::path::Path::new("/Volumes/External/romfs"))
+    );
+    assert_eq!(
+        config.keys.prod_keys_path.as_deref(),
+        Some(std::path::Path::new(
+            "/Volumes/External/SwitchKeys/prod.keys"
+        ))
+    );
+    assert_eq!(
+        config.inputs.xci_path.as_deref(),
+        Some(std::path::Path::new("/Volumes/External/title.xci"))
+    );
+    assert_eq!(
+        config.patches.patch_set.as_deref(),
+        Some(std::path::Path::new("patches/patches.toml"))
+    );
+    assert_eq!(config.validation.segment_end.as_deref(), Some("00:01:00"));
+    assert_eq!(config.gpu.backend.as_deref(), Some("metal"));
 }
 
 #[test]
@@ -184,6 +253,8 @@ fn pipeline_emits_project() {
 
     let main_src = fs::read_to_string(main_rs).expect("read main.rs");
     assert!(main_src.contains("svc_log"));
+    assert!(main_src.contains("CpuState::new"));
+    assert!(main_src.contains("entry(&mut state)?;"));
     let manifest_src = fs::read_to_string(manifest).expect("read manifest.json");
     let manifest_json: serde_json::Value =
         serde_json::from_str(&manifest_src).expect("parse manifest.json");
@@ -210,6 +281,9 @@ fn pipeline_emits_project() {
     }));
     assert_eq!(report.files_written.len(), 3);
     assert_eq!(report.detected_inputs.len(), 2);
+
+    let cargo_src = fs::read_to_string(cargo_toml).expect("read Cargo.toml");
+    assert!(cargo_src.contains("[workspace]"));
 }
 
 #[test]
@@ -496,6 +570,69 @@ fn pipeline_emits_memory_image() {
     let main_rs = out_dir.join("src/main.rs");
     let main_src = fs::read_to_string(main_rs).expect("read main.rs");
     assert!(main_src.contains("apply_memory_image"));
+}
+
+#[test]
+fn pipeline_emits_shared_state_function_calls() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let module_path = temp.path().join("module.json");
+    let config_path = temp.path().join("title.toml");
+    let provenance_path = temp.path().join("provenance.toml");
+    let nso_path = temp.path().join("main.nso");
+    let out_dir = temp.path().join("out");
+    let runtime_path = PathBuf::from("../crates/recomp-runtime");
+
+    let module_json = r#"{
+  "arch": "aarch64",
+  "entry_address": 4096,
+  "functions": [
+    {
+      "name": "entry",
+      "ops": [
+        { "op": "const_i64", "dst": "x0", "imm": 7 },
+        { "op": "call", "target": "callee" },
+        { "op": "ret" }
+      ]
+    },
+    {
+      "name": "callee",
+      "ops": [
+        { "op": "add_i64", "dst": "x1", "lhs": "x0", "rhs": "x0" },
+        { "op": "ret" }
+      ]
+    }
+  ]
+}"#;
+
+    fs::write(&module_path, module_json).expect("write module");
+    fs::write(&config_path, CONFIG_TOML_DEFAULT_LAYOUT).expect("write config");
+    fs::write(&nso_path, b"NSO0").expect("write nso");
+
+    let module_hash = sha256_hex(module_json.as_bytes());
+    let nso_hash = sha256_hex(b"NSO0");
+    let provenance = format!(
+        "schema_version = \"1\"\n\n[title]\nname = \"Minimal Sample\"\ntitle_id = \"0100000000000000\"\nversion = \"1.0.0\"\nregion = \"US\"\n\n[collection]\ndevice = \"demo\"\ncollected_at = \"2026-01-30\"\n\n[collection.tool]\nname = \"manual\"\nversion = \"1.0\"\n\n[[inputs]]\npath = \"module.json\"\nformat = \"lifted_json\"\nsha256 = \"{module_hash}\"\nsize = {module_size}\nrole = \"lifted_module\"\n\n[[inputs]]\npath = \"main.nso\"\nformat = \"nso0\"\nsha256 = \"{nso_hash}\"\nsize = 4\nrole = \"main_executable\"\n",
+        module_hash = module_hash,
+        module_size = module_json.len()
+    );
+    fs::write(&provenance_path, provenance).expect("write provenance");
+
+    run_pipeline(PipelineOptions {
+        module_path,
+        config_path,
+        provenance_path,
+        out_dir: out_dir.clone(),
+        runtime_path,
+    })
+    .expect("pipeline runs");
+
+    let main_src = fs::read_to_string(out_dir.join("src/main.rs")).expect("read main.rs");
+    assert!(main_src.contains("fn entry(state: &mut recomp_runtime::CpuState)"));
+    assert!(main_src.contains("fn callee(state: &mut recomp_runtime::CpuState)"));
+    assert!(main_src.contains("callee(state)?;"));
+    assert!(main_src.contains("state.regs[0] = 7;"));
+    assert!(main_src.contains("state.regs[1] = state.regs[0] + state.regs[0];"));
+    assert!(!main_src.contains("let mut x0: i64 = 0;"));
 }
 
 #[test]

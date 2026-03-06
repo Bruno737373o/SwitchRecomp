@@ -1,10 +1,10 @@
 # SPEC-250: Automation Services and Data Flow
 
 ## Status
-Draft v0.1
+Draft v0.2
 
 ## Purpose
-Define the service architecture and data flow for fully automated static recompilation across local and AWS environments.
+Define the service architecture and data flow for deterministic static recompilation across local and AWS environments.
 
 ## Goals
 - Describe the core services and their responsibilities.
@@ -25,7 +25,10 @@ Define the service architecture and data flow for fully automated static recompi
 - Artifact storage MUST be content-addressed and immutable once written.
 - The orchestration layer MUST support retries and resumable stages.
 - Workers MUST be stateless and operate on explicit inputs and outputs.
-- The model interface MUST be isolated behind a Model Gateway service.
+- Step Functions Standard MUST be the default cloud control plane.
+- Distributed Map MUST be reserved for explicit batch fan-out.
+- Heavy worker stages MUST run through AWS Batch `.sync` or an equivalent deterministic batch interface.
+- The model interface MUST be isolated from artifact mutation; agents plan, triage, and summarize while workers produce artifacts.
 
 ## Interfaces and Data
 - Run submission request (minimal JSON schema):
@@ -66,6 +69,7 @@ Required events:
 - Service inventory with ownership and run-time responsibilities.
 - Run lifecycle state machine definition.
 - Documented data flow with required events and artifacts.
+- Worker-tier split for `cpu-linux`, `video-linux`, and `metal-macos`.
 
 ## Open Questions
 - Should run state be sourced from a single metadata store or event log only?
@@ -75,10 +79,12 @@ Required events:
 - A run can be submitted using the minimal schema and observed end-to-end.
 - Every stage emits an event with deterministic artifacts and logs.
 - The architecture supports running the same input locally or in AWS without changing manifests.
+- macOS compute is documented as an exception lane rather than the default scalable worker tier.
 
 ## Risks
 - Overly granular services could increase operational complexity.
 - Divergent local and cloud behavior could reduce determinism.
+- EC2 Mac cost and host-allocation rules can distort the economics of a Metal-first cloud plan.
 
 ## References
 - SPEC-030-RECOMP-PIPELINE.md

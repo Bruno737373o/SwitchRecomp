@@ -1,6 +1,3 @@
-#![allow(dead_code)]
-// Automation scaffolding is intentionally compiled but not yet wired into the CLI.
-
 use recomp_pipeline::homebrew::{
     intake_homebrew, lift_homebrew, IntakeOptions, LiftMode, LiftOptions,
 };
@@ -191,6 +188,8 @@ struct ResolvedPaths {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RunManifest {
     pub schema_version: String,
+    pub platform_profile: String,
+    pub tool_versions: BTreeMap<String, String>,
     pub input_fingerprint: String,
     pub inputs: Vec<RunInput>,
     pub steps: Vec<RunStep>,
@@ -310,6 +309,8 @@ pub fn run_automation(config_path: &Path) -> Result<RunManifest, String> {
     let mut state = RunState {
         manifest: RunManifest {
             schema_version: RUN_MANIFEST_SCHEMA_VERSION.to_string(),
+            platform_profile: current_platform_profile(),
+            tool_versions: tool_versions(&config),
             input_fingerprint: input_fingerprint.clone(),
             inputs,
             steps: Vec::new(),
@@ -1303,6 +1304,48 @@ fn fingerprint_inputs(inputs: &[RunInput]) -> String {
     format!("{:x}", digest)
 }
 
+fn current_platform_profile() -> String {
+    format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH)
+}
+
+fn tool_versions(config: &AutomationConfig) -> BTreeMap<String, String> {
+    let mut versions = BTreeMap::new();
+    versions.insert(
+        "recomp-cli".to_string(),
+        env!("CARGO_PKG_VERSION").to_string(),
+    );
+    versions.insert(
+        "recomp-runtime".to_string(),
+        runtime_manifest_version(config).unwrap_or_else(|| "workspace".to_string()),
+    );
+    if let Some(tool) = config.tools.xci_tool {
+        versions.insert("xci_tool".to_string(), format!("{tool:?}").to_lowercase());
+    }
+    if let Some(path) = &config.tools.xci_tool_path {
+        versions.insert("xci_tool_path".to_string(), path.display().to_string());
+    }
+    if let Some(path) = &config.tools.ffmpeg_path {
+        versions.insert("ffmpeg_path".to_string(), path.display().to_string());
+    }
+    versions
+}
+
+fn runtime_manifest_version(config: &AutomationConfig) -> Option<String> {
+    let runtime_root = config
+        .inputs
+        .runtime_path
+        .clone()
+        .unwrap_or_else(|| repo_root().join("crates/recomp-runtime"));
+    let cargo_toml = runtime_root.join("Cargo.toml");
+    let cargo_src = fs::read_to_string(cargo_toml).ok()?;
+    let value: toml::Value = toml::from_str(&cargo_src).ok()?;
+    value
+        .get("package")
+        .and_then(|package| package.get("version"))
+        .and_then(toml::Value::as_str)
+        .map(str::to_string)
+}
+
 fn resolve_path(base_dir: &Path, path: &Path) -> PathBuf {
     if path.is_absolute() {
         path.to_path_buf()
@@ -1330,28 +1373,32 @@ mod tests {
         let repo_root = repo_root();
         let temp = tempdir().expect("tempdir");
         let work_root = temp.path().join("work");
+        let build_dir = work_root.join("build");
         let capture_dir = temp.path().join("capture");
+        let reference_dir = temp.path().join("reference");
         let frames_dir = capture_dir.join("frames");
+        let reference_frames_dir = reference_dir.join("frames");
         fs::create_dir_all(&frames_dir).expect("frames dir");
+        fs::create_dir_all(&reference_frames_dir).expect("reference frames dir");
 
-        let frame_a = frames_dir.join("00000001.png");
-        let frame_b = frames_dir.join("00000002.png");
+        let frame_a = reference_frames_dir.join("00000001.png");
+        let frame_b = reference_frames_dir.join("00000002.png");
         fs::write(&frame_a, b"frame-one").expect("write frame a");
         fs::write(&frame_b, b"frame-two").expect("write frame b");
 
-        let reference_hashes = hash_frames_dir(&frames_dir).expect("hash frames");
-        let reference_hash_path = temp.path().join("reference_frames.hashes");
+        let reference_hashes = hash_frames_dir(&reference_frames_dir).expect("hash frames");
+        let reference_hash_path = reference_dir.join("frames.hashes");
         write_hash_list(&reference_hash_path, &reference_hashes).expect("write ref hashes");
+        fs::write(reference_dir.join("reference.mp4"), b"").expect("write reference video");
 
         let capture_hash_path = capture_dir.join("frames.hashes");
         let capture_video_path = capture_dir.join("capture.mp4");
-        fs::write(&capture_video_path, b"").expect("write capture video");
 
         let reference_toml = format!(
             r#"schema_version = "2"
 
 [video]
-path = "reference.mp4"
+path = "{}"
 width = 1280
 height = 720
 fps = 30.0
@@ -1364,6 +1411,7 @@ end = "00:00:00.067"
 format = "list"
 path = "{}"
 "#,
+            reference_dir.join("reference.mp4").display(),
             reference_hash_path.display()
         );
         let capture_toml = format!(
@@ -1410,10 +1458,10 @@ video_path = "{}"
 frames_dir = "{}"
 
 [commands]
-build = ["/usr/bin/true"]
-run = ["/usr/bin/true"]
-capture = ["/usr/bin/true"]
-extract_frames = ["/usr/bin/true"]
+build = ["/bin/sh", "-lc", "cargo build --manifest-path \"$RECOMP_BUILD_DIR/Cargo.toml\""]
+run = ["/bin/sh", "-lc", "cargo run --quiet --manifest-path \"$RECOMP_BUILD_DIR/Cargo.toml\""]
+capture = ["/bin/sh", "-lc", "mkdir -p \"$RECOMP_CAPTURE_FRAMES_DIR\" && : > \"$RECOMP_CAPTURE_VIDEO\""]
+extract_frames = ["/bin/sh", "-lc", "cp \"{frame_a}\" \"$RECOMP_CAPTURE_FRAMES_DIR/00000001.png\" && cp \"{frame_b}\" \"$RECOMP_CAPTURE_FRAMES_DIR/00000002.png\""]
 "#,
             repo_root.join("samples/minimal/module.json").display(),
             repo_root.join("samples/minimal/provenance.toml").display(),
@@ -1423,14 +1471,28 @@ extract_frames = ["/usr/bin/true"]
             reference_path.display(),
             capture_path.display(),
             capture_video_path.display(),
-            frames_dir.display()
+            frames_dir.display(),
+            frame_a = frame_a.display(),
+            frame_b = frame_b.display(),
         );
         fs::write(&automation_path, automation_toml).expect("write automation config");
 
         let manifest = run_automation(&automation_path).expect("run automation");
+        assert_eq!(manifest.platform_profile, current_platform_profile());
+        assert_eq!(
+            manifest.tool_versions.get("recomp-cli").map(String::as_str),
+            Some(env!("CARGO_PKG_VERSION"))
+        );
         assert_eq!(manifest.input_fingerprint.len(), 64);
         assert!(manifest.steps.iter().any(|step| step.name == "pipeline"));
+        assert!(manifest.steps.iter().any(|step| step.name == "build"));
+        assert!(manifest.steps.iter().any(|step| step.name == "run"));
+        assert!(manifest
+            .steps
+            .iter()
+            .all(|step| step.status == StepStatus::Succeeded));
         assert!(paths_exist(&manifest, temp.path()));
+        assert!(build_dir.join("Cargo.toml").exists());
 
         let manifest_again = run_automation(&automation_path).expect("run automation again");
         assert_eq!(manifest.input_fingerprint, manifest_again.input_fingerprint);

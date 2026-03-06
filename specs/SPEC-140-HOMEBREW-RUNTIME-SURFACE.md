@@ -1,7 +1,12 @@
 # SPEC-140: Homebrew Runtime Surface
 
 ## Status
-Draft v0.2
+Draft v0.3
+
+## Rationale
+- Added a homebrew entry shim and loader-config builder in the runtime.
+- Added deterministic time/input helpers and explicit failure behavior for unsupported calls.
+- Confirmed that the Homebrew ABI key space is broader than the current runtime surface, so the first-title plan must pin a firmware baseline and implement only the minimum required subset.
 
 ## Purpose
 Define the runtime ABI surface required to boot a recompiled homebrew title and satisfy the Switch homebrew ABI expectations.
@@ -16,17 +21,19 @@ Define the runtime ABI surface required to boot a recompiled homebrew title and 
 - Supporting dynamically loaded NROs at runtime.
 
 ## Background
-The Switch homebrew ABI defines how NRO entrypoints receive a loader configuration and which config entries must be present at startup, including EndOfList, MainThreadHandle, and AppletType. citeturn0view0
-It also defines the register arguments used for NRO entrypoints. citeturn0view0
+The Switch homebrew ABI defines how NRO entrypoints receive a loader configuration, which register arguments are passed at entry, and which loader config keys are expected at startup. The current public docs also include optional keys beyond the original minimum set, so the runtime contract must separate required keys from optional keys and pin a firmware baseline for the first public title.
 
 ## Requirements
 - The runtime must provide an entrypoint shim that invokes the recompiled NRO entrypoint with:
   - X0 pointing to the loader configuration structure.
-  - X1 set to 0xFFFFFFFFFFFFFFFF for NROs. citeturn0view0
-- The runtime must populate loader config entries for EndOfList, MainThreadHandle, and AppletType at a minimum. citeturn0view0
-- The runtime must surface loader config entries for optional fields (Argv, OverrideHeap, AllocPages, LockRegion) when present, and fail with a clear error if a required field is missing. citeturn0view0
+  - X1 set to `0xFFFF_FFFF_FFFF_FFFF` for NROs.
+- The runtime must populate loader config entries for `EndOfList`, `MainThreadHandle`, and `AppletType` at a minimum.
+- The runtime must name the pinned firmware baseline used for service and loader-config expectations.
+- The runtime must surface optional loader config entries when present and fail with a clear error if a required field is missing.
+- The runtime spec must explicitly track the broader documented key space, including `RandomSeed`, `UserIdStorage`, `HosVersion`, and `SyscallAvailableHint2`, even if the first public title does not require them.
 - The runtime must provide a stable, deterministic time source and input event queue to minimize nondeterminism in validation.
 - The runtime must document which Horizon OS services are stubbed and which are implemented, with a hard failure for unsupported calls.
+- The first public title implementation target is a minimal libnx/Horizon subset, not a full Horizon surface.
 
 ## Interfaces and Data
 - Runtime ABI struct definitions for loader config entries.
@@ -41,11 +48,11 @@ It also defines the register arguments used for NRO entrypoints. citeturn0
 - Runtime service capability documentation.
 
 ## Open Questions
-- Should we map libnx service calls through a thin compatibility layer or directly implement a minimal subset?
-- What is the smallest deterministic input/timing surface that still allows real gameplay?
+- Which HOS baseline should be the first pinned target for homebrew service work?
+- Should libnx-facing behavior be expressed as a thin compatibility layer or by directly implementing a small Horizon subset?
 
 ## Acceptance Criteria
-- A recompiled homebrew binary boots and reaches its main loop with the runtime providing required loader config keys.
+- A recompiled public homebrew binary boots and reaches its main loop with the runtime providing the required loader config keys for the pinned baseline.
 - Unsupported services fail with an explicit, logged error that references the missing service.
 - The runtime manifest enumerates which loader config keys were provided for a run.
 
@@ -55,3 +62,4 @@ It also defines the register arguments used for NRO entrypoints. citeturn0
 
 ## References
 - https://switchbrew.org/wiki/Homebrew_ABI
+- https://switchbrew.org/wiki/HID_services

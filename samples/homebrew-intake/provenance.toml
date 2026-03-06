@@ -18,8 +18,8 @@ version = "1.0"
 [[inputs]]
 path = "inputs/homebrew.nro"
 format = "nro0"
-sha256 = "c30c135e46d5b0baea8a9ce8f2686366c754e926beb653c47882477b65f2feb2"
-size = 16637
+sha256 = "03214cebcded4822d885a3b9624691487c84b4d1e61432fe7313c6f160a99484"
+size = 16883
 role = "homebrew_module"
 
 [[inputs]]

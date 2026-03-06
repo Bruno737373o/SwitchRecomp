@@ -1,6 +1,6 @@
 # title-a24b9e807b456252 First-Level Scaffolding
 
-This document describes the SPEC-200 scaffolding for a macOS/aarch64 first-level milestone. It keeps all proprietary inputs external and provides placeholders for configuration, patches, and validation.
+This document describes the SPEC-200 scaffold for a macOS/aarch64 retail milestone. It keeps all proprietary inputs external and provides placeholders for configuration, patches, and validation. It does not describe a currently runnable first-level build.
 
 ## Scope
 - Provide title-specific config and patch placeholders.
@@ -59,7 +59,7 @@ The current stub map in `samples/title-a24b9e807b456252/title.toml` is:
 - Run artifact-index validation with `scripts/validate_artifacts.sh`.
 
 ## macOS/aarch64 Build and Run
-These steps use the existing pipeline tooling and assume you have supplied external assets and updated the placeholders.
+These steps exercise the current scaffold wiring only. They do not prove that title-a24b9e807b456252 is runnable today.
 
 1. Enter the dev shell (optional but recommended on macOS):
 ```

@@ -1,11 +1,12 @@
 # SPEC-040: Runtime and ABI Contract
 
 ## Status
-Draft v0.4
+Draft v0.5
 
 ## Rationale
 - Added a minimal runtime ABI stub crate with versioning for early linkage tests.
 - Added runtime-facing scaffolds for services, timing, and graphics.
+- Added shared `CpuState` register, flag, and PC/SP handling across emitted functions.
 
 ## Purpose
 Define the runtime library and ABI contract between recompiled code and host platform.
@@ -19,7 +20,7 @@ Define the runtime library and ABI contract between recompiled code and host pla
 - Exposing a public SDK for game development.
 
 ## ABI Requirements
-- Register and flag state representation.
+- Shared register and flag state representation (`CpuState`).
 - Memory model, alignment, and endianness assumptions.
 - Atomic and synchronization primitives.
 
@@ -38,7 +39,7 @@ Define the runtime library and ABI contract between recompiled code and host pla
 - How should ABI changes be versioned and validated?
 
 ## Acceptance Criteria
-- A unit test that links and executes a minimal recompiled program.
+- A unit test that links and executes a minimal recompiled program using shared CPU state.
 - A defined ABI version embedded in produced outputs.
 
 ## References

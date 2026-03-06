@@ -1,13 +1,15 @@
 # SPEC-030: Static Recompilation Pipeline
 
 ## Status
-Draft v0.6
+Draft v0.7
 
 ## Rationale
 - Added an exploratory pipeline scaffold and config schema to validate the end-to-end shape.
 - Added deterministic build manifest emission with input hashes.
-- Added a placeholder homebrew lifter command to bridge intake into lifted JSON.
-- Added a minimal AArch64 decode mode to lift homebrew text segments into the placeholder IR.
+- Added homebrew intake and lift commands to bridge NRO/NSO intake into lifted JSON.
+- Added a minimal AArch64 decode mode for early homebrew lift coverage.
+- Added repo-root emitted-crate support by emitting a standalone `[workspace]` table.
+- Added stable segment/memory-image propagation and runtime entry-address handling.
 
 ## Purpose
 Define the end-to-end pipeline for static recompilation from input binaries to native output.
@@ -30,7 +32,7 @@ Define the end-to-end pipeline for static recompilation from input binaries to n
 6. Build artifact generation.
 
 ## Configuration
-- A per-title config file (TOML) for stubs, skips, and patches.
+- A per-title config file (TOML) for stubs, inputs, assets, keys, patches, validation, GPU notes, and runtime settings.
 - Deterministic ordering for reproducible builds.
 - Overlay and relocation support with runtime indirection.
 
@@ -43,7 +45,7 @@ Define the end-to-end pipeline for static recompilation from input binaries to n
 - How should overlays or dynamic segments be handled?
 
 ## Acceptance Criteria
-- A minimal end-to-end build that compiles output for a test binary.
+- A minimal end-to-end build emits, compiles, and runs output for a test binary.
 - A config file that can stub at least one system call.
 
 ## References

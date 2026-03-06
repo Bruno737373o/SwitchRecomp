@@ -1,5 +1,6 @@
-use clap::{Parser, Subcommand, ValueEnum};
 mod automation;
+use automation::run_automation;
+use clap::{Parser, Subcommand, ValueEnum};
 use recomp_pipeline::bundle::{package_bundle, PackageOptions};
 use recomp_pipeline::homebrew::{
     intake_homebrew, lift_homebrew, IntakeOptions, LiftMode, LiftOptions,
@@ -20,6 +21,7 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum Command {
     Run(RunArgs),
+    Automate(AutomateArgs),
     Package(PackageArgs),
     HomebrewIntake(HomebrewIntakeArgs),
     HomebrewLift(HomebrewLiftArgs),
@@ -37,8 +39,14 @@ struct RunArgs {
     provenance: PathBuf,
     #[arg(long)]
     out_dir: PathBuf,
-    #[arg(long, default_value = "../crates/recomp-runtime")]
-    runtime_path: PathBuf,
+    #[arg(long)]
+    runtime_path: Option<PathBuf>,
+}
+
+#[derive(Parser, Debug)]
+struct AutomateArgs {
+    #[arg(long)]
+    config: PathBuf,
 }
 
 #[derive(Parser, Debug)]
@@ -147,7 +155,7 @@ fn main() {
                 config_path: run.config,
                 provenance_path: run.provenance,
                 out_dir: run.out_dir,
-                runtime_path: run.runtime_path,
+                runtime_path: run.runtime_path.unwrap_or_else(default_runtime_path),
             };
 
             match run_pipeline(options) {
@@ -173,6 +181,23 @@ fn main() {
                 }
             }
         }
+        Command::Automate(automate) => match run_automation(&automate.config) {
+            Ok(manifest) => {
+                println!(
+                    "Automation completed: {} steps, {} artifacts",
+                    manifest.steps.len(),
+                    manifest.artifacts.len()
+                );
+                println!("Input fingerprint: {}", manifest.input_fingerprint);
+                if let Some(report) = manifest.validation_report {
+                    println!("Validation report: {report}");
+                }
+            }
+            Err(err) => {
+                eprintln!("Automation error: {err}");
+                std::process::exit(1);
+            }
+        },
         Command::Package(package) => {
             let options = PackageOptions {
                 project_dir: package.project_dir,
@@ -303,4 +328,11 @@ fn main() {
             }
         },
     }
+}
+
+fn default_runtime_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("recomp-cli crate dir has parent")
+        .join("recomp-runtime")
 }

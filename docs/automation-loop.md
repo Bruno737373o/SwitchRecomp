@@ -14,7 +14,7 @@ assets into the repo.
 7. Emit `run-manifest.json` and `validation-report.json`.
 
 ## Core Inputs
-- `automation.toml` (config schema implemented in `recomp automate`).
+- `automation.toml` (config schema implemented in `recomp-cli automate`).
 - `reference_video.toml` and `capture_video.toml`.
 - `input_script.toml` for deterministic input replay.
 
@@ -22,7 +22,7 @@ assets into the repo.
 - Build artifacts under `out/<title>/`.
 - Capture artifacts under `artifacts/<title>/capture/`.
 - Validation artifacts under `artifacts/<title>/validation/`.
-- `run-manifest.json` for per-step timing, hashes, and provenance.
+- `run-manifest.json` for platform profile, tool metadata, per-step timing, hashes, and provenance.
 - `artifacts.json` to link intake manifests, capture configs, and validation reports.
 
 ## Asset Separation
@@ -40,9 +40,19 @@ metadata should be committed.
 - `[commands]` build/run/capture/extract commands (plus optional lift command for XCI).
 - `[run]` resume and lift settings (optional).
 
+The command runner executes from the repo root and exports these helper environment variables:
+- `RECOMP_WORK_ROOT`, `RECOMP_INTAKE_DIR`, `RECOMP_LIFT_DIR`, `RECOMP_BUILD_DIR`, `RECOMP_ASSETS_DIR`
+- `RECOMP_REFERENCE_VIDEO_TOML`, `RECOMP_CAPTURE_VIDEO_TOML`
+- `RECOMP_CAPTURE_VIDEO`, `RECOMP_CAPTURE_FRAMES_DIR`, `RECOMP_CAPTURE_AUDIO_FILE`
+- `RECOMP_VALIDATION_DIR`, `RECOMP_RUN_MANIFEST`, `RECOMP_LIFTED_MODULE_JSON`
+- `RECOMP_VALIDATION_CONFIG_TOML`, `RECOMP_INPUT_SCRIPT_TOML`
+
+The sample config uses `/bin/sh -lc` so these paths can be referenced directly from `cargo`,
+`ffmpeg`, or wrapper scripts.
+
 Invoke the loop with:
 ```bash
-recomp automate --config automation.toml
+cargo run -p recomp-cli -- automate --config samples/automation.toml
 ```
 
 ## title-a24b9e807b456252 Validation Inputs

@@ -2,21 +2,22 @@
 
 This shortlist prioritizes preservation-safe, open-source homebrew titles with redistributable assets and minimal service dependencies. Each candidate requires license verification before selection.
 
-## Candidate A: 2048-style Homebrew (e.g., 2048NX)
+## Candidate A: Bernardo Giordano's `2048`
 Pros:
 - Small codebase and minimal assets.
-- Limited service usage (input + simple graphics).
-- Easy to validate startup flow and rendering.
+- Limited service usage relative to a retail title.
+- Exercises the exact surfaces the current plan needs first: applet loop, pad input, simple presentation, and sdmc-backed save data.
+- Good fit for a public first milestone.
 
 Cons:
-- May not exercise audio or filesystem services.
-- Limited instruction coverage.
+- Does not exercise the full audio or network surface.
+- Still requires enough `vi`/`nv` and filesystem work to avoid fake success.
 
 Service dependencies:
-- `hid`, `vi`/`nv`, optional `applet` for lifecycle.
+- `sm:`, `sm:m`, applet lifecycle, `hid`, `vi` plus framebuffer-related `nv`, and sdmc-backed filesystem.
 
 Instruction coverage estimate:
-- Integer + branch heavy; minimal SIMD usage.
+- Integer, branch, and memory heavy; minimal SIMD usage expected.
 
 ## Candidate B: Snake-style Homebrew (e.g., SnakeNX)
 Pros:
