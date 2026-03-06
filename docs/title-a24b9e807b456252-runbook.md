@@ -61,7 +61,7 @@ scripts/validation_artifacts_init.sh --out artifacts/title-a24b9e807b456252/arti
 scripts/validate_artifacts.sh --artifact-index artifacts/title-a24b9e807b456252/artifacts.json
 ```
 
-Note: The automated validation loop is paused until SPEC-210/220/230/240 are implemented.
+Note: the general automation loop exists, but title-a24b9e807b456252-specific retail automation remains scaffold-only until the shared homebrew-first core is proven and the private retail path uses the same stage contracts.
 
 ## External Assets
 - RomFS assets are expected at `game-data/title-a24b9e807b456252/romfs`.

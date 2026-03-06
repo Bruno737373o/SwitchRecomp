@@ -1,7 +1,12 @@
 # Repository Guidelines
 
 ## Project Overview
-SwitchRecomp is a preservation-focused static recompilation research project. The repository now includes an exploratory Rust workspace that mirrors the intended pipeline shape (config-driven recompilation and a minimal runtime ABI) while keeping inputs and outputs cleanly separated.
+SwitchRecomp is a preservation-focused static recompilation research project. The repository now includes an exploratory Rust workspace with a verified local operator path for intake, lift, translation, emitted-crate build/run, and automation while keeping inputs and outputs cleanly separated.
+
+Current milestone ordering:
+- Public homebrew first.
+- Private retail intake second.
+- Hybrid cloud scale after local artifact contracts are stable.
 
 ## Project Structure & Module Organization
 - `specs/` holds the numbered specification series (see `specs/README.md` for ordering).
@@ -20,6 +25,13 @@ SwitchRecomp is a preservation-focused static recompilation research project. Th
   - `cargo run -p recomp-cli -- run --module samples/minimal/module.json --config samples/minimal/title.toml --provenance samples/minimal/provenance.toml --out-dir out/minimal`
 - Build emitted output:
   - `cargo build --manifest-path out/minimal/Cargo.toml`
+- Run emitted output:
+  - `cargo run --manifest-path out/minimal/Cargo.toml`
+- Run homebrew intake + lift:
+  - `cargo run -p recomp-cli -- homebrew-intake --module samples/homebrew-intake/inputs/homebrew.nro --nso samples/homebrew-intake/inputs/overlay.nso --provenance samples/homebrew-intake/provenance.toml --out-dir out/homebrew-intake`
+  - `cargo run -p recomp-cli -- homebrew-lift --module-json out/homebrew-intake/module.json --out-dir out/homebrew-lift --mode stub`
+- Run the automation loop:
+  - `cargo run -p recomp-cli -- automate --config samples/automation.toml`
 
 ## Coding Style & Naming Conventions
 - Specs use the naming pattern `SPEC-XXX-SLUG.md` (e.g., `SPEC-030-RECOMP-PIPELINE.md`).
@@ -31,6 +43,10 @@ SwitchRecomp is a preservation-focused static recompilation research project. Th
 - Use `cargo test` for Rust workspace tests.
 - Test files live under `crates/*/tests/` or inline in modules.
 - Always run the full suite after changes.
+- If you touch pipeline, CLI, runtime, or sample/operator docs, also prefer the repo-root smoke path:
+  - `cargo run -p recomp-cli -- run ...`
+  - `cargo build --manifest-path out/minimal/Cargo.toml`
+  - `cargo run --manifest-path out/minimal/Cargo.toml`
 - Record the full-suite command and outcome in the PR Testing section and in status updates.
 - Do not skip tests unless the user explicitly approves; record the approval and reason in the PR.
 
@@ -57,6 +73,7 @@ No established commit conventions are present yet. Until standards are set:
 - Add new sources to `RESEARCH.md` with a short note on relevance.
 - Prefer primary technical references; avoid linking to proprietary assets.
 - Keep asset separation explicit in all specs and docs.
+- When implementation changes the real operator path or milestone order, update `RESEARCH.md`, `ROADMAP.md`, `PLANS.md`, `README.md`, and the affected specs together so status and evidence stay aligned.
 
 ## Agent-Specific Instructions
 - Keep edits small and focused per change.
@@ -64,6 +81,7 @@ No established commit conventions are present yet. Until standards are set:
 - Do not add proprietary binaries, keys, or assets to the repository.
 - Always test changes, update relevant documentation, and commit all code you modify or add.
 - Push all commits after creating them.
+- If hooks require toolchain binaries that are only available in the dev shell, run commit/push through `nix develop --impure -c ...`.
 
 ## Subagent Conflict Resolution
 When using subagents, apply this workflow to keep ownership and diffs clear.
