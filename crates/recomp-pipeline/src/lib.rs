@@ -1,3 +1,4 @@
+pub mod android;
 pub mod bundle;
 pub mod config;
 pub mod homebrew;

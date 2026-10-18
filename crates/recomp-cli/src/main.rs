@@ -1,5 +1,9 @@
 use clap::{Parser, Subcommand, ValueEnum};
 mod automation;
+use recomp_pipeline::android::{
+    build_android_project, emit_android_project, AndroidOptions, DEFAULT_MIN_SDK,
+    DEFAULT_NDK_VERSION,
+};
 use recomp_pipeline::bundle::{package_bundle, PackageOptions};
 use recomp_pipeline::homebrew::{
     intake_homebrew, lift_homebrew, IntakeOptions, LiftMode, LiftOptions,
@@ -26,6 +30,8 @@ enum Command {
     HomebrewLift(HomebrewLiftArgs),
     XciIntake(XciIntakeArgs),
     XciValidate(XciValidateArgs),
+    /// Wrap an emitted project in a Gradle app and optionally build an APK.
+    Android(AndroidArgs),
 }
 
 #[derive(Parser, Debug)]
@@ -108,6 +114,35 @@ struct XciIntakeArgs {
 struct XciValidateArgs {
     #[arg(long)]
     manifest: PathBuf,
+}
+
+#[derive(Parser, Debug)]
+struct AndroidArgs {
+    /// Emitted project directory (output of `run`).
+    #[arg(long)]
+    project_dir: PathBuf,
+    /// Output directory for the generated Android project.
+    #[arg(long)]
+    out_dir: PathBuf,
+    #[arg(long, default_value = "crates/recomp-runtime")]
+    runtime_path: PathBuf,
+    #[arg(long)]
+    app_name: Option<String>,
+    #[arg(long)]
+    application_id: Option<String>,
+    /// Target ABIs (repeatable). Defaults to arm64-v8a, armeabi-v7a, x86_64.
+    #[arg(long = "abi")]
+    abis: Vec<String>,
+    #[arg(long, default_value_t = DEFAULT_MIN_SDK)]
+    min_sdk: u32,
+    #[arg(long, default_value = DEFAULT_NDK_VERSION)]
+    ndk_version: String,
+    /// Run the Gradle wrapper after generating the project.
+    #[arg(long)]
+    build: bool,
+    /// Build the release variant instead of debug (implies --build).
+    #[arg(long)]
+    release: bool,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -329,6 +364,49 @@ fn main() {
                 std::process::exit(1);
             }
         },
+        Command::Android(android) => {
+            let mut options =
+                AndroidOptions::new(android.project_dir, android.out_dir, android.runtime_path);
+            options.app_name = android.app_name;
+            options.application_id = android.application_id;
+            if !android.abis.is_empty() {
+                options.abis = android.abis;
+            }
+            options.min_sdk = android.min_sdk;
+            options.ndk_version = android.ndk_version;
+            let report = match emit_android_project(&options) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("Android error: {err}");
+                    std::process::exit(1);
+                }
+            };
+            println!(
+                "Android project for {} ({}) written to {}",
+                report.app_name,
+                report.application_id,
+                report.out_dir.display()
+            );
+            println!(
+                "ABIs: {} | assets: {}",
+                report.abis.join(", "),
+                report.assets.len()
+            );
+            if android.build || android.release {
+                match build_android_project(&report.out_dir, android.release) {
+                    Ok(apk) => println!("APK: {}", apk.display()),
+                    Err(err) => {
+                        eprintln!("Android build error: {err}");
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                println!(
+                    "Build with: (cd {} && ./gradlew assembleDebug)",
+                    report.out_dir.display()
+                );
+            }
+        }
     }
 }
 
@@ -343,5 +421,13 @@ mod tests {
         assert!(command
             .get_subcommands()
             .any(|subcommand| subcommand.get_name() == "automate"));
+    }
+
+    #[test]
+    fn cli_includes_android_subcommand() {
+        let command = Args::command();
+        assert!(command
+            .get_subcommands()
+            .any(|subcommand| subcommand.get_name() == "android"));
     }
 }

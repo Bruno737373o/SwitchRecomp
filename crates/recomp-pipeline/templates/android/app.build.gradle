@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+def abiList = recompAbis.split(',').collect { it.trim() }.findAll { !it.isEmpty() }
+def rustDir = rootProject.file('rust')
+def rustJniLibs = layout.buildDirectory.dir('rustJniLibs').get().asFile
+
+android {
+    namespace 'org.switchrecomp.android'
+    compileSdk 34
+    ndkVersion recompNdkVersion
+
+    defaultConfig {
+        applicationId recompApplicationId
+        minSdk recompMinSdk.toInteger()
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs += rustJniLibs
+        }
+    }
+}
+
+tasks.register('cargoNdkBuild', Exec) {
+    workingDir rustDir
+    def cmd = ['cargo', 'ndk', '--platform', recompMinSdk]
+    abiList.each { cmd += ['-t', it] }
+    cmd += ['-o', rustJniLibs.absolutePath, 'build', '--release']
+    commandLine cmd
+    doFirst {
+        environment 'ANDROID_NDK_HOME', android.ndkDirectory.absolutePath
+    }
+}
+
+preBuild.dependsOn 'cargoNdkBuild'

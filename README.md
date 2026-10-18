@@ -35,6 +35,7 @@ Legal and provenance policy:
 - `samples/memory-image/` shows the memory image initialization flow (segment blob + lifted module).
 - `samples/validation/` contains non-proprietary validation artifact index templates.
 - `docs/static-recompilation-flow.md` outlines a hypothetical macOS static recompilation flow and verification pipeline (see the Real XCI intake section for external-tool usage).
+- `docs/android-build.md` documents the Android build target (`recomp-cli android`), which packages emitted projects into an APK.
 - `docs/xci-intake.md` documents the XCI intake workflow and mock extractor format.
 - `docs/validation-artifacts.md` defines validation artifact indexing, workflows, and dependencies.
 - `docs/run-manifest-schema.md` and `docs/artifact-index-schema.md` document automation/validation metadata schemas.
