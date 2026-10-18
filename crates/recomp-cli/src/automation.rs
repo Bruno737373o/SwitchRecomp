@@ -196,7 +196,9 @@ pub struct PolicyConfig {
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ExecutionMode {
+    #[default]
     Local,
     Cloud,
     Hybrid,
@@ -209,12 +211,6 @@ impl std::fmt::Display for ExecutionMode {
             ExecutionMode::Cloud => f.write_str("cloud"),
             ExecutionMode::Hybrid => f.write_str("hybrid"),
         }
-    }
-}
-
-impl Default for ExecutionMode {
-    fn default() -> Self {
-        Self::Local
     }
 }
 

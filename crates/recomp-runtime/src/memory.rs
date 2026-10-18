@@ -143,7 +143,7 @@ impl RuntimeMemory {
             regions.push((spec.clone(), end));
         }
 
-        regions.sort_by(|a, b| a.0.base.cmp(&b.0.base));
+        regions.sort_by_key(|a| a.0.base);
         for pair in regions.windows(2) {
             let left = &pair[0].0;
             let left_end = pair[0].1;
@@ -245,7 +245,7 @@ impl RuntimeMemory {
             return Err(MemoryStatus::Internal);
         }
         let size_u64 = size as u64;
-        if require_alignment && address % size_u64 != 0 {
+        if require_alignment && !address.is_multiple_of(size_u64) {
             return Err(MemoryStatus::Unaligned);
         }
         let end = address

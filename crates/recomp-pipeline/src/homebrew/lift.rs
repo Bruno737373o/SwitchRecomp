@@ -225,7 +225,7 @@ impl TextSegment {
             return Err(format!("address 0x{addr:x} outside text segment"));
         }
         let offset = addr - self.base_addr;
-        if offset % 4 != 0 {
+        if !offset.is_multiple_of(4) {
             return Err(format!("unaligned instruction address 0x{addr:x}"));
         }
         let idx = offset as usize;
@@ -402,7 +402,7 @@ fn decode_block(
     warnings: &mut Vec<String>,
     names: &mut FunctionNames,
 ) -> Result<(Block, Vec<u64>, Vec<u64>, usize), String> {
-    if start % 4 != 0 {
+    if !start.is_multiple_of(4) {
         return Err(format!("unaligned block start 0x{start:x}"));
     }
     if !text.contains(start) {
