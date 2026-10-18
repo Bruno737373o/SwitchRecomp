@@ -130,3 +130,6 @@ Canonical detailed history of specification changes under `specs/`.
 
 - 2026-02-16 `04516f8` Ingest long-tail LLM decomp findings into plans and specs
   - Spec files: M `specs/SPEC-210-AUTOMATED-RECOMP-LOOP.md`; M `specs/SPEC-250-AUTOMATION-SERVICES.md`; M `specs/SPEC-260-AGENT-PIPELINE-SECURITY.md`
+
+- 2026-10-18 `c0702f8` Add Android APK build target (recomp-cli android)
+  - Spec files: M `specs/SPEC-090-BUILD-DISTRIBUTION.md`

@@ -35,6 +35,7 @@ Legal and provenance policy:
 - `samples/memory-image/` shows the memory image initialization flow (segment blob + lifted module).
 - `samples/validation/` contains non-proprietary validation artifact index templates.
 - `docs/static-recompilation-flow.md` outlines a hypothetical macOS static recompilation flow and verification pipeline (see the Real XCI intake section for external-tool usage).
+- `docs/android-build.md` documents the Android build target (`recomp-cli android`), which packages emitted projects into an APK.
 - `docs/xci-intake.md` documents the XCI intake workflow and mock extractor format.
 - `docs/validation-artifacts.md` defines validation artifact indexing, workflows, and dependencies.
 - `docs/run-manifest-schema.md` and `docs/artifact-index-schema.md` document automation/validation metadata schemas.
@@ -58,6 +59,7 @@ Configured hooks:
 
 ## Specs Update Log
 - Detailed commit-by-commit spec history: `docs/SPECS-CHANGELOG.md`.
+- 2026-10-18: Added the Android APK build target to `SPEC-090` (`recomp-cli android`, see `docs/android-build.md`).
 - 2026-02-16: Ingested long-tail LLM decomp findings into `SPEC-210`, `SPEC-250`, and `SPEC-260`.
 - 2026-02-07: Migrated title references to hash IDs, updated validation details, and renamed `SPEC-200` to `SPEC-200-TITLE-A24B9E807B456252-FIRST-LEVEL.md`.
 - 2026-02-04: Expanded XCI intake and validation artifact plumbing across `SPEC-100`, `SPEC-180`, `SPEC-190`, and `SPEC-200`.

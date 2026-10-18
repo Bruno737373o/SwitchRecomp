@@ -60,7 +60,7 @@ impl MemoryLayoutDescriptor {
             ranges.push((region.name.as_str(), region.base, end));
         }
 
-        ranges.sort_by(|a, b| a.1.cmp(&b.1));
+        ranges.sort_by_key(|a| a.1);
         for window in ranges.windows(2) {
             let left = window[0];
             let right = window[1];

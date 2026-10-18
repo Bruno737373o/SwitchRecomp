@@ -140,7 +140,7 @@ fn push_dir_entry(
     buf.extend_from_slice(&next_hash.to_le_bytes());
     buf.extend_from_slice(&(name.len() as u32).to_le_bytes());
     buf.extend_from_slice(name.as_bytes());
-    while buf.len() % 4 != 0 {
+    while !buf.len().is_multiple_of(4) {
         buf.push(0);
     }
     offset
@@ -163,7 +163,7 @@ fn push_file_entry(
     buf.extend_from_slice(&next_hash.to_le_bytes());
     buf.extend_from_slice(&(name.len() as u32).to_le_bytes());
     buf.extend_from_slice(name.as_bytes());
-    while buf.len() % 4 != 0 {
+    while !buf.len().is_multiple_of(4) {
         buf.push(0);
     }
     offset

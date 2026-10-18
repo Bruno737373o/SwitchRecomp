@@ -110,6 +110,15 @@ cargo run -p recomp-cli -- package \
   --out-dir out/bundle-minimal
 ```
 
+- Build an Android APK from an emitted project (see `docs/android-build.md`):
+
+```
+cargo run -p recomp-cli -- android \
+  --project-dir out/memory-image \
+  --out-dir out/android-memory-image \
+  --build
+```
+
 - Run homebrew intake (NRO + optional NSO inputs):
 
 ```

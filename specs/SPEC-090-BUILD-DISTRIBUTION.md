@@ -1,11 +1,12 @@
 # SPEC-090: Build, Packaging, and Distribution
 
 ## Status
-Draft v0.5
+Draft v0.6
 
 ## Rationale
 - Added a Nix + devenv development scaffold and initial build outputs for exploratory work.
 - Added a deterministic build manifest with input hashes for reproducible packaging.
+- Added an Android build target that wraps emitted projects in a Gradle app and packages them as an APK.
 
 ## Purpose
 Define build outputs, packaging, and distribution policy.
@@ -22,6 +23,7 @@ Define build outputs, packaging, and distribution policy.
 - Recompiled native binary.
 - Runtime library and support files.
 - Metadata files for provenance and configuration.
+- Optional Android APK (`recomp-cli android`) that cross-compiles the emitted code with the NDK and ships only emitted runtime data files (see `docs/android-build.md`).
 
 ## Packaging
 - A bundle layout that separates code from user-supplied assets.
