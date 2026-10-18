@@ -59,6 +59,7 @@ Configured hooks:
 
 ## Specs Update Log
 - Detailed commit-by-commit spec history: `docs/SPECS-CHANGELOG.md`.
+- 2026-10-18: Added the Android APK build target to `SPEC-090` (`recomp-cli android`, see `docs/android-build.md`).
 - 2026-02-16: Ingested long-tail LLM decomp findings into `SPEC-210`, `SPEC-250`, and `SPEC-260`.
 - 2026-02-07: Migrated title references to hash IDs, updated validation details, and renamed `SPEC-200` to `SPEC-200-TITLE-A24B9E807B456252-FIRST-LEVEL.md`.
 - 2026-02-04: Expanded XCI intake and validation artifact plumbing across `SPEC-100`, `SPEC-180`, `SPEC-190`, and `SPEC-200`.
